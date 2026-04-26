@@ -6,6 +6,8 @@ English | [简体中文](./README.md)
 
 Enter a character name, and the system uses multiple collaborative AI Agents to automatically search and scrape web content, extract biographical events, collect public reactions to those events, and generate structured character timeline data. Supports both historical figures and fictional characters.
 
+![ShenTan Web Interface Screenshot](images/6f7a5584-08fb-4643-ae9d-60bf6a380813.png)
+
 ## Features
 
 - **Four-Stage Intelligent Collection** — Orchestrator dispatches Biographer → EventExplorer → StatementCollector → ReactionCollector agents in stages

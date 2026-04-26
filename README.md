@@ -6,6 +6,8 @@
 
 输入角色名称，系统通过多个协作 AI Agent 自动搜索、爬取网页内容，提取角色的生平事件，收集各方对这些事件的反应，最终生成结构化的角色时间线数据。支持历史人物和虚构角色。
 
+![ShenTan Web 界面截图](images/6f7a5584-08fb-4643-ae9d-60bf6a380813.png)
+
 ## 功能特性
 
 - **四阶段智能收集** — 编排器调度 Biographer → EventExplorer → StatementCollector → ReactionCollector 四类 Agent 分阶段采集
