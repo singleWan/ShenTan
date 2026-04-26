@@ -1,0 +1,27 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+*.tsbuildinfo
+
+# Database
+data/
+*.db
+
+# Environment
+.env
+
+# Next.js
+.turbo/
+.next/
+next-env.d.ts
+
+# AI / IDE auxiliary files
+CLAUDE.md
+.claude/
+.zcf/
+
+# OS
+.DS_Store
+Thumbs.db

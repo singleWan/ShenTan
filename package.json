@@ -1,0 +1,22 @@
+{
+  "name": "shentan",
+  "version": "0.1.0",
+  "private": true,
+  "description": "AI-driven character biography and event collection system",
+  "scripts": {
+    "build": "pnpm -r run build",
+    "dev": "pnpm --filter @shentan/cli run dev",
+    "lint": "pnpm -r run lint",
+    "db:generate": "pnpm --filter @shentan/core run db:generate",
+    "db:migrate": "pnpm --filter @shentan/core run db:migrate",
+    "cli": "pnpm --filter @shentan/cli run start",
+    "web": "pnpm --filter @shentan/web run dev"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "devDependencies": {
+    "tsx": "^4.21.0"
+  },
+  "dependencies": {}
+}
