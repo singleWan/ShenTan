@@ -14,6 +14,8 @@ const PLATFORM_SITE_MAP: Record<string, string[]> = {
   instagram: ['instagram.com'],
   youtube: ['youtube.com', 'youtu.be'],
   zhihu: ['zhihu.com'],
+  reddit: ['reddit.com', 'old.reddit.com'],
+  bilibili: ['bilibili.com'],
 };
 
 // 多分类搜索的默认分类组合
@@ -127,7 +129,7 @@ export class SearchEngineManager {
         searchTasks.push(this.search(`${query} site:${site}`, { maxResults: 10 }));
       }
     } else if (!platform) {
-      const topPlatforms = ['twitter.com', 'weibo.com', 'facebook.com'];
+      const topPlatforms = ['twitter.com', 'weibo.com', 'facebook.com', 'reddit.com', 'zhihu.com'];
       for (const site of topPlatforms) {
         searchTasks.push(this.search(`${query} site:${site}`, { maxResults: 5 }));
       }

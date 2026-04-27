@@ -1,4 +1,6 @@
 import { createPage, closeBrowser } from './browser.js';
+import { detectPlatform, getScrapableUrl } from './platform.js';
+import { extractByPlatform } from './extractors/index.js';
 
 export interface ScrapedContent {
   title: string;
@@ -7,10 +9,9 @@ export interface ScrapedContent {
   links: Array<{ text: string; href: string }>;
 }
 
-// 从页面提取正文内容
+// 从页面提取正文内容（通用逻辑）
 async function extractContent(page: import('playwright').Page): Promise<ScrapedContent> {
   return page.evaluate(() => {
-    // 移除导航、侧栏、广告等无关元素
     const removeSelectors = [
       'nav', 'header', 'footer', 'aside',
       '.sidebar', '.ad', '.advertisement', '.nav',
@@ -22,7 +23,6 @@ async function extractContent(page: import('playwright').Page): Promise<ScrapedC
       document.querySelectorAll(sel).forEach(el => el.remove());
     }
 
-    // 尝试找到主要内容区域
     const mainSelectors = [
       'article', 'main', '.article-content', '.post-content',
       '.entry-content', '.content', '#content', '.wiki-content',
@@ -38,7 +38,6 @@ async function extractContent(page: import('playwright').Page): Promise<ScrapedC
     const title = document.title || '';
     const content = mainEl.innerText?.trim() || '';
 
-    // 提取链接
     const links: Array<{ text: string; href: string }> = [];
     mainEl.querySelectorAll('a[href]').forEach((a) => {
       const anchor = a as HTMLAnchorElement;
@@ -53,16 +52,37 @@ async function extractContent(page: import('playwright').Page): Promise<ScrapedC
   });
 }
 
-// 爬取单个页面
+// 爬取单个页面，集成平台专用提取器
 export async function scrapePage(url: string, timeout = 30000): Promise<ScrapedContent> {
+  const platform = detectPlatform(url);
+  const scrapableUrl = platform ? getScrapableUrl(url) : url;
+
   const { page, context } = await createPage();
   try {
-    await page.goto(url, { timeout, waitUntil: 'domcontentloaded' });
-    // 等待主要内容加载
-    await page.waitForTimeout(1000);
-    const result = await extractContent(page);
-    result.url = url;
-    // 截断过长内容
+    // 社交媒体页面可能需要更长等待时间
+    const waitStrategy = platform ? 'networkidle' : 'domcontentloaded';
+    await page.goto(scrapableUrl, { timeout, waitUntil: waitStrategy });
+
+    if (platform) {
+      // 社交媒体页面等待动态内容加载
+      await page.waitForTimeout(2000);
+    } else {
+      await page.waitForTimeout(1000);
+    }
+
+    // 降级链：平台专用提取 → 通用提取
+    let result: ScrapedContent | null = null;
+
+    if (platform) {
+      result = await extractByPlatform(page, platform);
+    }
+
+    if (!result) {
+      result = await extractContent(page);
+    }
+
+    result.url = url; // 始终返回原始 URL
+
     if (result.content.length > 50000) {
       result.content = result.content.substring(0, 50000) + '\n... (内容已截断)';
     }
