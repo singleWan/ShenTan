@@ -2,6 +2,7 @@ import { generateObject } from 'ai';
 import { z } from 'zod';
 import type { LanguageModel } from 'ai';
 import type { CharacterAlias } from '@shentan/core';
+import { withRetry, DEFAULT_RETRY_CONFIG, isRetryableError } from './utils/retry.js';
 
 const ALIAS_RESOLVER_PROMPT = `你是一个角色名称别名解析专家。你的任务是分析给定的角色名称，生成该角色在不同语言、平台和语境下的所有可能称呼方式。
 
@@ -48,12 +49,18 @@ export async function resolveAliases(
     ? `请分析虚构角色 "${characterName}" 的所有已知别名和称呼方式。包括不同语言版本的译名、作品中的别名、粉丝圈常用的昵称等。`
     : `请分析 "${characterName}" 的所有已知别名和称呼方式。包括中文译名、中文昵称/绰号、英文名称变体、社交媒体账号、常用头衔等。`;
 
-  const result = await generateObject({
-    model,
-    schema: aliasSchema,
-    system: ALIAS_RESOLVER_PROMPT,
-    prompt: userPrompt,
-  });
+  const result = await withRetry(
+    () => generateObject({
+      model,
+      schema: aliasSchema,
+      system: ALIAS_RESOLVER_PROMPT,
+      prompt: userPrompt,
+    }),
+    { ...DEFAULT_RETRY_CONFIG, maxRetries: 2 },
+    (attempt, err, delay) => {
+      console.warn(`[alias-resolver] 第 ${attempt} 次重试（${delay}ms 后）: ${err.message}`);
+    },
+  );
 
   return result.object.aliases.map(a => ({ ...a, source: 'ai' as const }));
 }

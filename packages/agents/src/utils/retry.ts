@@ -20,12 +20,28 @@ export const DEFAULT_THROTTLE_CONFIG: ThrottleConfig = {
 
 // 403 访问受限（OpenAI-compatible 代理可能用此表示临时限速）、429 限速、服务端错误、过载
 const RETRYABLE_STATUS_CODES = new Set([403, 429, 500, 502, 503, 504]);
-const RETRYABLE_KEYWORDS = ['rate limit', 'rate_limit', 'too many requests', 'timeout', 'overloaded', 'capacity', 'throttl'];
+const RETRYABLE_KEYWORDS = [
+  'rate limit', 'rate_limit', 'too many requests', 'timeout', 'overloaded', 'capacity', 'throttl',
+  // 网络连接错误
+  'socket disconnected', 'tls connection', 'other side closed', 'econnreset', 'econnrefused',
+  'etimedout', 'enotfound', 'network error', 'fetch failed', 'connect econn',
+];
+
+/** Node.js 网络错误码，均属于可重试的瞬时故障 */
+const RETRYABLE_ERROR_CODES = new Set([
+  'ECONNRESET', 'ECONNREFUSED', 'ETIMEDOUT', 'ENOTFOUND',
+  'ENETUNREACH', 'EAI_AGAIN', 'UND_ERR_SOCKET',
+]);
 
 /** 判断错误是否可重试 */
 export function isRetryableError(error: unknown): boolean {
   const err = error as Record<string, unknown>;
   if (!err) return false;
+
+  // Node.js 网络错误码（ECONNRESET / ETIMEDOUT 等）
+  if (typeof err.code === 'string' && RETRYABLE_ERROR_CODES.has(err.code)) {
+    return true;
+  }
 
   // Vercel AI SDK 的 APICallError 含 statusCode
   if (typeof err.statusCode === 'number' && RETRYABLE_STATUS_CODES.has(err.statusCode)) {
