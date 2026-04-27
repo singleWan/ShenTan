@@ -981,10 +981,22 @@ body {
 
 .result-stage {
   display: flex;
+  flex-wrap: wrap;
   justify-content: space-between;
+  align-items: flex-start;
   padding: 0.5rem 0.875rem;
   font-size: 0.85rem;
   font-family: var(--font-mono), 'JetBrains Mono', monospace;
+}
+
+.stage-error {
+  width: 100%;
+  margin-top: 0.35rem;
+  padding-top: 0.35rem;
+  border-top: 1px solid rgba(255, 100, 100, 0.2);
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  word-break: break-all;
 }
 
 .result-stage.ok {

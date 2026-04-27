@@ -13,7 +13,7 @@ interface TaskResult {
   success: boolean;
   totalEvents: number;
   totalReactions: number;
-  stages: Array<{ stage: string; success: boolean; duration: number }>;
+  stages: Array<{ stage: string; success: boolean; duration: number; message?: string }>;
 }
 
 type PageState = 'form' | 'collecting' | 'done';
@@ -348,6 +348,7 @@ export default function CollectPage() {
                   <div key={i} className={`result-stage ${s.success ? 'ok' : 'fail'}`}>
                     <span>{s.stage}</span>
                     <span>{(s.duration / 1000).toFixed(1)}s {s.success ? '✓' : '✗'}</span>
+                    {!s.success && s.message && <div className="stage-error">{s.message}</div>}
                   </div>
                 ))}
               </div>
