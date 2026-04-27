@@ -4,6 +4,7 @@ import { BIOGRAPHER_SYSTEM_PROMPT } from './prompts/biographer.js';
 import { runAgentLoop, type AgentRunResult } from './agent-runner.js';
 import { formatAliasesForPrompt } from './alias-resolver.js';
 import { getDateContext } from './date-context.js';
+import { buildSourceSection } from './source-context.js';
 
 export type { AgentRunResult };
 
@@ -17,6 +18,7 @@ export async function runBiographer(
   maxOutputTokens: number,
   onLog?: (msg: string) => void,
   aliases?: CharacterAlias[],
+  source?: string,
 ): Promise<AgentRunResult> {
   const log = (msg: string) => onLog?.(msg);
   log(`[Biographer] 开始收集 "${characterName}" 的生平事迹...`);
@@ -25,10 +27,13 @@ export async function runBiographer(
     ? `\n## 角色搜索别名\n\n角色 "${characterName}" 在不同平台/语言下的搜索关键字：\n${formatAliasesForPrompt(aliases)}\n\n搜索时请使用以上所有别名分别搜索，不同别名可能找到不同维度的信息。\n`
     : '';
 
+  const sourceSection = buildSourceSection(source,
+    '请优先从该作品中搜索和提取角色的生平事件与相关信息。');
+
   const userPrompt = `请收集角色 "${characterName}" 的生平事迹。
 角色类型: ${characterType === 'fictional' ? '小说/虚构角色' : '历史人物'}
 ${getDateContext()}
-${aliasSection}
+${sourceSection}${aliasSection}
 请按以下步骤执行：
 1. 先搜索基本生平信息
 2. 爬取权威来源获取详细内容

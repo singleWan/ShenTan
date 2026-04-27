@@ -114,7 +114,7 @@ export async function runOrchestrator(
   // 2. AI 解析别名
   try {
     log('--- 预处理: 解析角色别名 ---');
-    const aiAliases = await resolveAliases(bioCfg.model, options.characterName, options.characterType);
+    const aiAliases = await resolveAliases(bioCfg.model, options.characterName, options.characterType, options.source);
     if (aiAliases.length > 0) {
       log(`AI 解析到 ${aiAliases.length} 个别名: ${aiAliases.map(a => a.name).join('、')}`);
     } else {
@@ -140,7 +140,7 @@ export async function runOrchestrator(
   log('--- 阶段 1: 生平事迹采集 ---');
   const bioResult = await runBiographer(
     bioCfg.model, db, character.id, options.characterName, options.characterType,
-    bioCfg.maxIterations, bioCfg.maxOutputTokens, log, aliases,
+    bioCfg.maxIterations, bioCfg.maxOutputTokens, log, aliases, options.source,
   );
   stages.push({
     stage: 'biographer',
@@ -166,7 +166,7 @@ export async function runOrchestrator(
 
     const exploreResult = await runEventExplorer(
       exploreCfg.model, db, character.id, options.characterName, options.characterType, round,
-      exploreCfg.maxIterations, exploreCfg.maxOutputTokens, log, aliases,
+      exploreCfg.maxIterations, exploreCfg.maxOutputTokens, log, aliases, options.source,
     );
 
     // 评估本轮质量
@@ -203,7 +203,7 @@ export async function runOrchestrator(
     log('\n--- 阶段 3: 发言/政策/声明收集 ---');
     const statementResult = await runStatementCollector(
       statementCfg.model, db, character.id, options.characterName, options.characterType,
-      statementCfg.maxIterations, statementCfg.maxOutputTokens, log, aliases,
+      statementCfg.maxIterations, statementCfg.maxOutputTokens, log, aliases, options.source,
     );
     stages.push({
       stage: 'statement-collector',
@@ -238,6 +238,7 @@ export async function runOrchestrator(
         maxOutputTokens: reactionCfg.maxOutputTokens,
         onLog: log,
         aliases,
+        source: options.source,
       });
 
       const evtReactions = await queries.getReactionsForEvent(db, evt.id);

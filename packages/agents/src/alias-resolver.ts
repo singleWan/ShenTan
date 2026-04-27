@@ -44,9 +44,11 @@ export async function resolveAliases(
   model: LanguageModel,
   characterName: string,
   characterType: string,
+  source?: string,
 ): Promise<CharacterAlias[]> {
+  const sourceHint = source ? `该角色来源于「${source}」，请重点分析该作品中使用的名称。` : '';
   const userPrompt = characterType === 'fictional'
-    ? `请分析虚构角色 "${characterName}" 的所有已知别名和称呼方式。包括不同语言版本的译名、作品中的别名、粉丝圈常用的昵称等。`
+    ? `请分析虚构角色 "${characterName}" 的所有已知别名和称呼方式。包括不同语言版本的译名、作品中的别名、粉丝圈常用的昵称等。${sourceHint}`
     : `请分析 "${characterName}" 的所有已知别名和称呼方式。包括中文译名、中文昵称/绰号、英文名称变体、社交媒体账号、常用头衔等。`;
 
   const result = await withRetry(
