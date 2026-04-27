@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { categoryLabel } from '@/lib/labels';
+import { categoryLabel, sentimentLabel } from '@/lib/labels';
 
 interface EventData {
   id: number;
@@ -391,18 +391,20 @@ export default function TimelineInteractive({
                     <h4>各方反应 ({evtReactions.length})</h4>
                     {evtReactions.map((r) => (
                       <div key={r.id} className="reaction-item">
-                        <span className="reaction-actor">{r.reactor}</span>
-                        <span className={`reaction-sentiment sentiment-${r.sentiment}`}>
-                          {r.sentiment}
-                        </span>
-                        <span className="reaction-text">{r.reactionText}</span>
-                        <button
-                          className="reaction-delete-btn"
-                          onClick={() => setConfirmState({ type: 'reaction', id: r.id, name: r.reactor })}
-                          title="删除反应"
-                        >
-                          ×
-                        </button>
+                        <div className="reaction-header">
+                          <span className="reaction-actor">{r.reactor}</span>
+                          <span className={`reaction-sentiment sentiment-${r.sentiment ?? 'neutral'}`}>
+                            {sentimentLabel(r.sentiment ?? 'neutral')}
+                          </span>
+                          <button
+                            className="reaction-delete-btn"
+                            onClick={() => setConfirmState({ type: 'reaction', id: r.id, name: r.reactor })}
+                            title="删除反应"
+                          >
+                            ×
+                          </button>
+                        </div>
+                        <div className="reaction-text">{r.reactionText}</div>
                       </div>
                     ))}
                   </div>
