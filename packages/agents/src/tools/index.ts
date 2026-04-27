@@ -106,7 +106,7 @@ export function createTools(db: Database) {
         title: z.string().describe('事件标题'),
         description: z.string().optional().describe('事件详细描述'),
         dateText: z.string().optional().describe('原始日期文本（如"1946年6月14日"或"第一章"）'),
-        dateSortable: z.string().optional().describe('可排序日期（ISO格式如1946-06-14）'),
+        dateSortable: z.string().optional().describe('可排序日期。历史人物用 YYYY-MM-DD（如 1946-06-14）；虚构角色用 FIC- 前缀（章节用 FIC-CH0025、阶段用 FIC-PH001、叙事序号用 FIC-SEQ0003）'),
         category: z.enum(EVENT_CATEGORIES).optional().describe('事件分类'),
         content: z.string().optional().describe('发言/政策/声明的完整文本内容（仅 speech/policy/statement 类事件需要）'),
         platform: z.string().optional().describe('来源平台（如 twitter/weibo/facebook/instagram/youtube/zhihu/news/official/other）'),

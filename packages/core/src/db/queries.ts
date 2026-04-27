@@ -10,6 +10,7 @@ import type {
   CharacterExport,
   CharacterAlias,
 } from '../types/index.js';
+import { normalizeDate, interpolateDateSortables } from '../utils/date-normalizer.js';
 
 // Character 查询
 export async function createCharacter(db: Database, input: {
@@ -115,6 +116,11 @@ export async function saveEvents(db: Database, input: {
     importance?: number;
   }>;
 }) {
+  // 查询角色类型（用于日期规范化策略选择）
+  const character = await db.select({ type: characters.type })
+    .from(characters).where(eq(characters.id, input.characterId)).limit(1);
+  const characterType = character[0]?.type ?? 'historical';
+
   // 获取已有事件用于去重
   const existingEvents = await db.select({
     title: events.title,
@@ -122,21 +128,38 @@ export async function saveEvents(db: Database, input: {
     dateSortable: events.dateSortable,
   }).from(events).where(eq(events.characterId, input.characterId));
 
-  const results = [];
+  // ── 第一阶段：去重 + 日期规范化 ──
+  const toSave: Array<{
+    parentEventId: number | null;
+    title: string;
+    description: string | null;
+    dateText: string | null;
+    dateSortable: string | null;
+    category: string;
+    content: string | null;
+    platform: string | null;
+    authorHandle: string | null;
+    sourceUrl: string | null;
+    sourceTitle: string | null;
+    importance: number;
+  }> = [];
   const skipped: string[] = [];
+
   for (const evt of input.events) {
     const dup = existingEvents.find(ex => isDuplicateEvent(evt, ex));
     if (dup) {
       skipped.push(evt.title);
       continue;
     }
-    const result = await db.insert(events).values({
-      characterId: input.characterId,
+
+    const normalized = normalizeDate(evt.dateText, evt.dateSortable, characterType);
+
+    toSave.push({
       parentEventId: evt.parentEventId ?? null,
       title: evt.title,
       description: evt.description ?? null,
       dateText: evt.dateText ?? null,
-      dateSortable: evt.dateSortable ?? null,
+      dateSortable: normalized.confidence !== 'unparseable' ? normalized.dateSortable : null,
       category: evt.category ?? 'other',
       content: evt.content ?? null,
       platform: evt.platform ?? null,
@@ -144,6 +167,19 @@ export async function saveEvents(db: Database, input: {
       sourceUrl: evt.sourceUrl ?? null,
       sourceTitle: evt.sourceTitle ?? null,
       importance: evt.importance ?? 3,
+    });
+  }
+
+  // ── 第二阶段：对无法解析的日期进行插值排序 ──
+  const existingDates = existingEvents.map(e => e.dateSortable).filter((d): d is string => !!d);
+  interpolateDateSortables(toSave, existingDates, characterType);
+
+  // ── 第三阶段：批量入库 ──
+  const results = [];
+  for (const evt of toSave) {
+    const result = await db.insert(events).values({
+      characterId: input.characterId,
+      ...evt,
       metadata: null,
     }).returning();
     results.push(result[0]!);
@@ -162,7 +198,7 @@ export async function getEvents(db: Database, input: {
 
   return db.select().from(events)
     .where(and(...conditions))
-    .orderBy(events.dateSortable);
+    .orderBy(sql`COALESCE(${events.dateSortable}, 'zzzz')`, events.createdAt);
 }
 
 export async function getEvent(db: Database, id: number) {
@@ -266,7 +302,7 @@ export async function exportCharacter(db: Database, characterId: number): Promis
 
   const allEvents = await db.select().from(events)
     .where(eq(events.characterId, characterId))
-    .orderBy(events.dateSortable);
+    .orderBy(sql`COALESCE(${events.dateSortable}, 'zzzz')`, events.createdAt);
 
   const timeline = await Promise.all(allEvents.map(async (evt) => {
     const eventReactions = await getReactionsForEvent(db, evt.id);
