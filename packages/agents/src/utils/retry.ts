@@ -18,8 +18,8 @@ export const DEFAULT_THROTTLE_CONFIG: ThrottleConfig = {
   minInterval: 1000,
 };
 
-// 429 限速、服务端错误、过载
-const RETRYABLE_STATUS_CODES = new Set([429, 500, 502, 503, 504]);
+// 403 访问受限（OpenAI-compatible 代理可能用此表示临时限速）、429 限速、服务端错误、过载
+const RETRYABLE_STATUS_CODES = new Set([403, 429, 500, 502, 503, 504]);
 const RETRYABLE_KEYWORDS = ['rate limit', 'rate_limit', 'too many requests', 'timeout', 'overloaded', 'capacity', 'throttl'];
 
 /** 判断错误是否可重试 */

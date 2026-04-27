@@ -3,6 +3,17 @@ import type { LanguageModel, ModelMessage } from 'ai';
 import { createTools } from './tools/index.js';
 import type { Database } from '@shentan/core';
 
+// 检查是否为 AI SDK 的 RetryError（包含原始错误信息）
+function extractErrorMessage(error: unknown): string {
+  if (error && typeof error === 'object' && 'reason' in error && 'lastError' in error) {
+    const lastError = (error as { lastError: unknown }).lastError;
+    if (lastError instanceof Error) {
+      return lastError.message;
+    }
+  }
+  return (error as Error).message;
+}
+
 export interface AgentRunResult {
   success: boolean;
   message: string;
@@ -31,6 +42,7 @@ export async function runAgentLoop(params: RunAgentParams): Promise<AgentRunResu
       messages: [{ role: 'user', content: userPrompt } satisfies ModelMessage],
       tools: tools.all,
       maxOutputTokens,
+      maxRetries: 0,
       stopWhen: stepCountIs(maxIterations),
     });
 
@@ -46,7 +58,7 @@ export async function runAgentLoop(params: RunAgentParams): Promise<AgentRunResu
       },
     };
   } catch (error) {
-    const msg = (error as Error).message;
+    const msg = extractErrorMessage(error);
     onLog?.(`[${agentName}] 错误: ${msg}`);
     return { success: false, message: msg };
   }

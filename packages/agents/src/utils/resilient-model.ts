@@ -33,8 +33,10 @@ export function createResilientModel(
         retryConfig,
         (attempt, error, delay) => {
           const statusCode = (error as unknown as Record<string, unknown>)?.statusCode;
-          const reason = statusCode === 429 ? '请求限速' : '服务端错误';
-          onLog?.(`[API] ${reason}，第 ${attempt}/${retryConfig.maxRetries} 次重试（等待 ${Math.round(delay)}ms）: ${error.message}`);
+          const reason = statusCode === 403 ? '访问受限'
+            : statusCode === 429 ? '请求限速'
+            : '服务端错误';
+          onLog?.(`[API] ${reason} (${statusCode})，第 ${attempt}/${retryConfig.maxRetries} 次重试（等待 ${Math.round(delay)}ms）: ${error.message}`);
         },
       );
     },
