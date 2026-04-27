@@ -34,6 +34,16 @@ export const DEFAULT_QUALITY_CONFIG: QualityConfig = {
   consecutiveDryRounds: 2,
 };
 
+export interface RetryConfig {
+  maxRetries: number;
+  baseDelay: number;
+  maxDelay: number;
+}
+
+export interface ThrottleConfig {
+  minInterval: number;
+}
+
 export interface ShentanConfig {
   default: string;
   providers: Record<string, ProviderConfig>;
@@ -41,4 +51,6 @@ export interface ShentanConfig {
   searxng?: SearXNGConfig;
   quality?: Partial<QualityConfig>;
   agents?: Record<string, AgentConfig>;
+  retry?: RetryConfig;
+  throttle?: ThrottleConfig;
 }

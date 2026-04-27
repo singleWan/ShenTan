@@ -1,4 +1,4 @@
-import type { ShentanConfig, ProviderConfig, AgentConfig, SearXNGConfig, QualityConfig } from './types.js';
+import type { ShentanConfig, ProviderConfig, AgentConfig, SearXNGConfig, QualityConfig, RetryConfig, ThrottleConfig } from './types.js';
 
 function getEnv(key: string): string | undefined {
   return process.env[key];
@@ -131,6 +131,29 @@ function buildAgentConfigs(): Record<string, AgentConfig> | undefined {
   return hasValue ? configs : undefined;
 }
 
+function buildRetryConfig(): RetryConfig | undefined {
+  const maxRetries = getEnvInt('RETRY_MAX_RETRIES');
+  const baseDelay = getEnvInt('RETRY_BASE_DELAY');
+  const maxDelay = getEnvInt('RETRY_MAX_DELAY');
+
+  if (maxRetries === undefined && baseDelay === undefined && maxDelay === undefined) {
+    return undefined;
+  }
+
+  return {
+    maxRetries: maxRetries ?? 3,
+    baseDelay: baseDelay ?? 2000,
+    maxDelay: maxDelay ?? 30000,
+  };
+}
+
+function buildThrottleConfig(): ThrottleConfig | undefined {
+  const minInterval = getEnvInt('API_MIN_INTERVAL');
+  if (minInterval === undefined) return undefined;
+
+  return { minInterval };
+}
+
 export function resolveConfig(): ShentanConfig {
   let providers = buildProviders();
 
@@ -146,6 +169,8 @@ export function resolveConfig(): ShentanConfig {
     searxng: buildSearXNGConfig(),
     quality: buildQualityConfig(),
     agents: buildAgentConfigs(),
+    retry: buildRetryConfig(),
+    throttle: buildThrottleConfig(),
   };
 
   // 验证默认 Provider 存在

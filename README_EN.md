@@ -246,6 +246,17 @@ Define AI providers via `PROVIDER_<NAME>_*` prefix (auto-discovery):
 | `SEARXNG_ENABLED` | Enable/disable | `true` |
 | `SEARXNG_CACHE_TTL` | Cache TTL in seconds | `1800` |
 
+#### API Retry & Throttling
+
+Automatically retries with exponential backoff on rate limits (429) or server errors (5xx), with a minimum interval between requests.
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `RETRY_MAX_RETRIES` | Max retry attempts (`0` to disable) | `3` |
+| `RETRY_BASE_DELAY` | Initial retry delay (ms) | `2000` |
+| `RETRY_MAX_DELAY` | Max delay cap (ms) | `30000` |
+| `API_MIN_INTERVAL` | Min interval between requests (ms, `0` to disable) | `1000` |
+
 #### Agent Overrides (Optional)
 
 | Variable Pattern | Description | Default |

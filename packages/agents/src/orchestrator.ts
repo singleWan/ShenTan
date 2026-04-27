@@ -10,6 +10,7 @@ import { resolveConfig, getProviderConfig, getAgentModelConfig } from './config/
 import type { ShentanConfig, QualityConfig } from './config/types.js';
 import { DEFAULT_QUALITY_CONFIG } from './config/types.js';
 import { createModel } from './provider/factory.js';
+import { createResilientModel } from './utils/resilient-model.js';
 import { getDefaultSearchManager } from '@shentan/crawler';
 import { shouldContinue, formatQualityReport, type RoundQuality } from './quality-assessor.js';
 
@@ -38,10 +39,14 @@ export interface OrchestratorResult {
   }>;
 }
 
-function createAgentModel(config: ShentanConfig, agentName: string): { model: LanguageModel; maxIterations: number; maxOutputTokens: number } {
+function createAgentModel(config: ShentanConfig, agentName: string, onLog?: (msg: string) => void): { model: LanguageModel; maxIterations: number; maxOutputTokens: number } {
   const { providerName, maxIterations, maxTokens } = getAgentModelConfig(config, agentName);
   const providerCfg = getProviderConfig(config, providerName);
-  const model = createModel(providerCfg);
+  const baseModel = createModel(providerCfg);
+  const model = createResilientModel(baseModel, {
+    retry: config.retry,
+    throttle: config.throttle,
+  }, onLog);
   return { model, maxIterations, maxOutputTokens: maxTokens };
 }
 
@@ -72,10 +77,10 @@ export async function runOrchestrator(
       ?? DEFAULT_QUALITY_CONFIG.maxExploreRounds,
   };
 
-  const bioCfg = createAgentModel(config, 'biographer');
-  const exploreCfg = createAgentModel(config, 'event-explorer');
-  const statementCfg = createAgentModel(config, 'statement-collector');
-  const reactionCfg = createAgentModel(config, 'reaction-collector');
+  const bioCfg = createAgentModel(config, 'biographer', log);
+  const exploreCfg = createAgentModel(config, 'event-explorer', log);
+  const statementCfg = createAgentModel(config, 'statement-collector', log);
+  const reactionCfg = createAgentModel(config, 'reaction-collector', log);
 
   const stages: OrchestratorResult['stages'] = [];
 
