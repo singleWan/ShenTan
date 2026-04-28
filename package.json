@@ -10,13 +10,19 @@
     "db:generate": "pnpm --filter @shentan/core run db:generate",
     "db:migrate": "pnpm --filter @shentan/core run db:migrate",
     "cli": "pnpm --filter @shentan/cli run start",
-    "web": "pnpm --filter @shentan/web run dev"
+    "web": "pnpm --filter @shentan/web run dev",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage"
   },
   "engines": {
     "node": ">=20.0.0"
   },
   "devDependencies": {
-    "tsx": "^4.21.0"
+    "tsx": "^4.21.0",
+    "vitest": "^4.1.5"
   },
-  "dependencies": {}
+  "dependencies": {
+    "dotenv": "^16.5.0"
+  }
 }
