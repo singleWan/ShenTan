@@ -65,7 +65,7 @@ process.on('message', async (msg: IPCMessage) => {
     return;
   }
 
-  const payload = msg.type === 'start-expand' ? msg.payload : msg.payload;
+  const payload = msg.payload;
   const dbPath = payload.dbPath;
 
   const onLog = (logMsg: string) => {

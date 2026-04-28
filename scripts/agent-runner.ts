@@ -1,46 +1,10 @@
 import { initDatabase, closeDb, createLogWriter } from '@shentan/core';
 import { runOrchestrator, type OrchestratorResult } from '@shentan/agents';
-import { readFileSync, existsSync } from 'node:fs';
-import { resolve, dirname } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { config } from 'dotenv';
+import { resolve } from 'node:path';
 
 // 确保 .env 环境变量已加载
-function loadEnvFile() {
-  const cwd = process.cwd();
-  const searchDirs = [cwd];
-
-  try {
-    const scriptDir = resolve(fileURLToPath(import.meta.url), '..');
-    if (scriptDir !== cwd) searchDirs.push(scriptDir);
-  } catch { /* ignore */ }
-
-  for (const startDir of searchDirs) {
-    let dir = startDir;
-    for (let i = 0; i < 10; i++) {
-      if (existsSync(resolve(dir, '.env'))) {
-        const envPath = resolve(dir, '.env');
-        const content = readFileSync(envPath, 'utf-8');
-        for (const line of content.split('\n')) {
-          const trimmed = line.trim();
-          if (!trimmed || trimmed.startsWith('#')) continue;
-          const eqIndex = trimmed.indexOf('=');
-          if (eqIndex === -1) continue;
-          const key = trimmed.slice(0, eqIndex).trim();
-          const value = trimmed.slice(eqIndex + 1).trim().replace(/^["']|["']$/g, '');
-          if (!process.env[key]) {
-            process.env[key] = value;
-          }
-        }
-        return;
-      }
-      const parent = resolve(dir, '..');
-      if (parent === dir) break;
-      dir = parent;
-    }
-  }
-}
-
-loadEnvFile();
+config({ path: resolve(process.cwd(), '.env') });
 
 interface StartPayload {
   characterName: string;
