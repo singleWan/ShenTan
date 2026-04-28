@@ -8,6 +8,8 @@ export type Sentiment = 'positive' | 'negative' | 'neutral' | 'mixed';
 export type AgentType = 'biographer' | 'event-explorer' | 'reaction-collector' | 'statement-collector';
 export type TaskStatus = 'pending' | 'running' | 'completed' | 'failed';
 export type CollectionTaskStatus = 'pending' | 'running' | 'completed' | 'failed' | 'cancelled';
+export type BackgroundTaskType = 'expand-events' | 'collect-reactions';
+export type ReactionStatus = 'active' | 'archived';
 
 export interface CollectionTaskProgress {
   stage: string;
@@ -78,6 +80,7 @@ export interface Event {
   importance: number;
   metadata: string | null;
   createdAt: string;
+  updatedAt: string;
 }
 
 export interface Reaction {
@@ -89,18 +92,25 @@ export interface Reaction {
   sentiment: Sentiment | null;
   sourceUrl: string | null;
   sourceTitle: string | null;
+  status: ReactionStatus;
+  collectionId: string | null;
   createdAt: string;
 }
 
-export interface SearchTask {
-  id: number;
-  characterId: number;
-  agentType: AgentType;
+export interface BackgroundTask {
+  id: string;
+  type: BackgroundTaskType;
   status: TaskStatus;
-  query: string;
-  resultSummary: string | null;
+  characterId: number | null;
+  characterName: string;
+  config: string | null;
+  result: string | null;
+  error: string | null;
+  progress: string | null;
   startedAt: string | null;
   completedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
 }
 
 // Agent 工具入参类型

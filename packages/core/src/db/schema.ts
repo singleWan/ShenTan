@@ -30,6 +30,7 @@ export const events = sqliteTable('events', {
   importance: integer().notNull().default(3),
   metadata: text(),
   createdAt: text('created_at').notNull().$defaultFn(() => new Date().toISOString()),
+  updatedAt: text('updated_at').notNull().$defaultFn(() => new Date().toISOString()),
 }, (table) => [
   index('events_character_idx').on(table.characterId),
   index('events_date_idx').on(table.dateSortable),
@@ -46,23 +47,11 @@ export const reactions = sqliteTable('reactions', {
   sentiment: text(),
   sourceUrl: text('source_url'),
   sourceTitle: text('source_title'),
+  status: text().notNull().default('active'),
+  collectionId: text('collection_id'),
   createdAt: text('created_at').notNull().$defaultFn(() => new Date().toISOString()),
 }, (table) => [
   index('reactions_event_idx').on(table.eventId),
-]);
-
-export const searchTasks = sqliteTable('search_tasks', {
-  id: integer().primaryKey({ autoIncrement: true }),
-  characterId: integer('character_id').notNull().references(() => characters.id),
-  agentType: text('agent_type').notNull(),
-  status: text().notNull().default('pending'),
-  query: text().notNull(),
-  resultSummary: text('result_summary'),
-  startedAt: text('started_at'),
-  completedAt: text('completed_at'),
-}, (table) => [
-  index('search_tasks_character_idx').on(table.characterId),
-  index('search_tasks_status_idx').on(table.status),
 ]);
 
 export const collectionTasks = sqliteTable('collection_tasks', {
@@ -86,4 +75,24 @@ export const collectionTasks = sqliteTable('collection_tasks', {
 }, (table) => [
   index('collection_tasks_status_idx').on(table.status),
   index('collection_tasks_character_idx').on(table.characterId),
+]);
+
+export const backgroundTasks = sqliteTable('background_tasks', {
+  id: text().primaryKey(),
+  type: text().notNull(),
+  status: text().notNull().default('pending'),
+  characterId: integer('character_id'),
+  characterName: text('character_name').notNull(),
+  config: text(),
+  result: text(),
+  error: text(),
+  progress: text(),
+  startedAt: text('started_at'),
+  completedAt: text('completed_at'),
+  createdAt: text('created_at').notNull().$defaultFn(() => new Date().toISOString()),
+  updatedAt: text('updated_at').notNull().$defaultFn(() => new Date().toISOString()),
+}, (table) => [
+  index('background_tasks_type_idx').on(table.type),
+  index('background_tasks_status_idx').on(table.status),
+  index('background_tasks_character_idx').on(table.characterId),
 ]);

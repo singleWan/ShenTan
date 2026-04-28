@@ -1,12 +1,11 @@
 import { eq, and, gte, desc, sql } from 'drizzle-orm';
 import type { Database } from './connection.js';
-import { characters, events, reactions, searchTasks, collectionTasks } from './schema.js';
+import { characters, events, reactions, collectionTasks } from './schema.js';
 import type {
   CharacterType,
   EventCategory,
   Sentiment,
   ReactorType,
-  AgentType,
   CharacterExport,
   CharacterAlias,
   CollectionTaskStatus,
@@ -190,16 +189,26 @@ export async function saveEvents(db: Database, input: {
   const existingDates = existingEvents.map(e => e.dateSortable).filter((d): d is string => !!d);
   interpolateDateSortables(toSave, existingDates, characterType);
 
-  // ── 第三阶段：批量入库 ──
-  const results = [];
-  for (const evt of toSave) {
-    const result = await db.insert(events).values({
-      characterId: input.characterId,
-      ...evt,
-      metadata: null,
-    }).returning();
-    results.push(result[0]!);
-  }
+  // ── 第三阶段：批量入库（事务内分批插入） ──
+  if (toSave.length === 0) return { saved: [], skipped };
+
+  const results = await db.transaction(async (tx) => {
+    const inserted = [];
+    // 每批最多 50 条，避免 SQLite 变量数限制
+    const BATCH_SIZE = 50;
+    for (let i = 0; i < toSave.length; i += BATCH_SIZE) {
+      const batch = toSave.slice(i, i + BATCH_SIZE);
+      for (const evt of batch) {
+        const result = await tx.insert(events).values({
+          characterId: input.characterId,
+          ...evt,
+          metadata: null,
+        }).returning();
+        inserted.push(result[0]!);
+      }
+    }
+    return inserted;
+  });
   return { saved: results, skipped };
 }
 
@@ -238,20 +247,24 @@ export async function saveReactions(db: Database, input: {
     sourceTitle?: string;
   }>;
 }) {
-  const results = [];
-  for (const r of input.reactions) {
-    const result = await db.insert(reactions).values({
-      eventId: input.eventId,
-      reactor: r.reactor,
-      reactorType: r.reactorType,
-      reactionText: r.reactionText ?? null,
-      sentiment: r.sentiment ?? null,
-      sourceUrl: r.sourceUrl ?? null,
-      sourceTitle: r.sourceTitle ?? null,
-    }).returning();
-    results.push(result[0]!);
-  }
-  return results;
+  if (input.reactions.length === 0) return [];
+
+  return db.transaction(async (tx) => {
+    const results = [];
+    for (const r of input.reactions) {
+      const result = await tx.insert(reactions).values({
+        eventId: input.eventId,
+        reactor: r.reactor,
+        reactorType: r.reactorType,
+        reactionText: r.reactionText ?? null,
+        sentiment: r.sentiment ?? null,
+        sourceUrl: r.sourceUrl ?? null,
+        sourceTitle: r.sourceTitle ?? null,
+      }).returning();
+      results.push(result[0]!);
+    }
+    return results;
+  });
 }
 
 export async function getReactionsForEvent(db: Database, eventId: number) {
@@ -283,32 +296,7 @@ export async function deleteCharacter(db: Database, id: number) {
     await db.delete(reactions).where(eq(reactions.eventId, evt.id));
   }
   await db.delete(events).where(eq(events.characterId, id));
-  await db.delete(searchTasks).where(eq(searchTasks.characterId, id));
   await db.delete(characters).where(eq(characters.id, id));
-}
-
-// SearchTask 查询
-export async function createSearchTask(db: Database, input: {
-  characterId: number;
-  agentType: AgentType;
-  query: string;
-}) {
-  const result = await db.insert(searchTasks).values({
-    characterId: input.characterId,
-    agentType: input.agentType,
-    status: 'pending',
-    query: input.query,
-  }).returning();
-  return result[0]!;
-}
-
-export async function updateSearchTask(db: Database, id: number, input: {
-  status?: string;
-  resultSummary?: string;
-  startedAt?: string;
-  completedAt?: string;
-}) {
-  await db.update(searchTasks).set(input).where(eq(searchTasks.id, id));
 }
 
 // 导出完整角色数据
@@ -320,9 +308,32 @@ export async function exportCharacter(db: Database, characterId: number): Promis
     .where(eq(events.characterId, characterId))
     .orderBy(sql`COALESCE(${events.dateSortable}, 'zzzz')`, events.createdAt);
 
-  const timeline = await Promise.all(allEvents.map(async (evt) => {
-    const eventReactions = await getReactionsForEvent(db, evt.id);
-    const children = allEvents.filter(e => e.parentEventId === evt.id).map(e => e.id);
+  // 预构建父→子索引，消除 O(n²) 查找
+  const childrenMap = new Map<number, number[]>();
+  for (const evt of allEvents) {
+    if (evt.parentEventId != null) {
+      const list = childrenMap.get(evt.parentEventId) ?? [];
+      list.push(evt.id);
+      childrenMap.set(evt.parentEventId, list);
+    }
+  }
+
+  // 批量查询所有反应（单次查询替代 N 次查询）
+  const allReactions = await db.select().from(reactions)
+    .where(sql`${reactions.eventId} IN (${sql.join(allEvents.map(e => sql`${e.id}`), sql`, `)})`);
+
+  // 按 eventId 分组
+  const reactionsByEvent = new Map<number, typeof allReactions>();
+  for (const r of allReactions) {
+    const list = reactionsByEvent.get(r.eventId) ?? [];
+    list.push(r);
+    reactionsByEvent.set(r.eventId, list);
+  }
+
+  let totalReactions = 0;
+  const timeline = allEvents.map((evt) => {
+    const eventReactions = reactionsByEvent.get(evt.id) ?? [];
+    totalReactions += eventReactions.length;
 
     return {
       id: evt.id,
@@ -334,7 +345,7 @@ export async function exportCharacter(db: Database, characterId: number): Promis
       platform: evt.platform,
       authorHandle: evt.authorHandle,
       importance: evt.importance,
-      children,
+      children: childrenMap.get(evt.id) ?? [],
       reactions: eventReactions.map(r => ({
         reactor: r.reactor,
         reactorType: r.reactorType as ReactorType,
@@ -342,9 +353,7 @@ export async function exportCharacter(db: Database, characterId: number): Promis
         sentiment: r.sentiment as Sentiment,
       })),
     };
-  }));
-
-  const totalReactions = timeline.reduce((sum, t) => sum + t.reactions.length, 0);
+  });
 
   return {
     character: {

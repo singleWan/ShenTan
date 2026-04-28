@@ -36,14 +36,20 @@ export function chineseNumToArabic(text: string): number {
       // 十、百、千、万 — 乘法器
       if (current === 0) current = 1;
       if (val === 10000) {
-        result = (result + current * val);
+        // 万：累加到 result，重置 current
+        result = (result + current) * val;
         current = 0;
       } else {
-        current *= val;
+        // 十、百、千：乘以当前数字后加入 result
+        result += current * val;
+        current = 0;
       }
+    } else if (val === 0) {
+      // 零：跳过（分隔符）
+      continue;
     } else {
-      // 单个数字
-      current += val;
+      // 1-9：暂存
+      current = val;
     }
   }
 
