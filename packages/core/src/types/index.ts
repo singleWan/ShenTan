@@ -55,6 +55,7 @@ export interface Character {
   source: string | null;
   description: string | null;
   aliases: string | null;
+  imageUrl: string | null;
   status: CharacterStatus;
   createdAt: string;
   updatedAt: string;

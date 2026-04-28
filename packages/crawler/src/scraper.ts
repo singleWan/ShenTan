@@ -7,6 +7,7 @@ export interface ScrapedContent {
   url: string;
   content: string;
   links: Array<{ text: string; href: string }>;
+  imageUrl?: string;
 }
 
 // 从页面提取正文内容（通用逻辑）
@@ -48,7 +49,12 @@ async function extractContent(page: import('playwright').Page): Promise<ScrapedC
       }
     });
 
-    return { title, url: location.href, content, links };
+    const imageUrl = document.querySelector('meta[property="og:image"]')?.getAttribute('content')
+      || document.querySelector('meta[name="twitter:image"]')?.getAttribute('content')
+      || document.querySelector('meta[property="twitter:image:src"]')?.getAttribute('content')
+      || undefined;
+
+    return { title, url: location.href, content, links, imageUrl };
   });
 }
 

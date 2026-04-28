@@ -7,6 +7,7 @@ export const characters = sqliteTable('characters', {
   source: text(),
   description: text(),
   aliases: text(),
+  imageUrl: text('image_url'),
   status: text().notNull().default('pending'),
   createdAt: text('created_at').notNull().$defaultFn(() => new Date().toISOString()),
   updatedAt: text('updated_at').notNull().$defaultFn(() => new Date().toISOString()),

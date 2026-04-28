@@ -83,14 +83,15 @@ export function createTools(db: Database) {
   });
 
   const scrapePage = tool({
-    description: '爬取指定URL的网页内容。返回页面标题和正文文本。用于获取搜索结果中的详细内容。',
+    description: '爬取指定URL的网页内容。返回页面标题、正文文本和页面图片URL（如果有）。用于获取搜索结果中的详细内容。',
     inputSchema: z.object({
       url: z.string().describe('要爬取的网页URL'),
     }),
     execute: async ({ url }) => {
       try {
         const result = await doScrape(url);
-        return `标题: ${result.title}\nURL: ${result.url}\n\n${result.content.substring(0, 15000)}`;
+        const imageTag = result.imageUrl ? `\n页面图片: ${result.imageUrl}` : '';
+        return `标题: ${result.title}\nURL: ${result.url}${imageTag}\n\n${result.content.substring(0, 15000)}`;
       } catch (e) {
         return `爬取失败: ${(e as Error).message}`;
       }
@@ -182,15 +183,17 @@ export function createTools(db: Database) {
   });
 
   const updateCharacter = tool({
-    description: '更新角色信息（描述、状态）。',
+    description: '更新角色信息（描述、状态、图片URL）。imageUrl 应该是从权威来源（如维基百科、官方页面）爬取到的角色海报或肖像图片的 URL。优先选择高质量、正面、清晰的图片。',
     inputSchema: z.object({
       characterId: z.number().describe('角色ID'),
       description: z.string().optional().describe('角色描述'),
       status: z.enum(['pending', 'collecting', 'completed', 'failed']).optional().describe('状态'),
+      imageUrl: z.string().optional().describe('角色图片URL（海报、肖像等），从爬取页面的 og:image 或其他来源获取'),
     }),
-    execute: async ({ characterId, description, status }) => {
+    execute: async ({ characterId, description, status, imageUrl }) => {
       if (description) await queries.updateCharacterDescription(db, characterId, description);
       if (status) await queries.updateCharacterStatus(db, characterId, status);
+      if (imageUrl) await queries.updateCharacterImageUrl(db, characterId, imageUrl);
       return '角色信息已更新';
     },
   });

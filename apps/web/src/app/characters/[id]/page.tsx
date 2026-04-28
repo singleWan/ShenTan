@@ -66,16 +66,32 @@ export default async function CharacterPage({ params }: { params: Promise<{ id: 
 
       <div className="char-header">
         <div className="char-title-row">
-          <h1 className="glitch">{character.name}</h1>
-          <span className={`badge badge-${character.status}`}>
-            <span className="badge-dot" />
-            {statusLabel(character.status)}
-          </span>
-          <DeleteCharacterButton characterId={characterId} characterName={character.name} />
-        </div>
-        <div className="char-meta">
-          <span>{character.type === 'fictional' ? '虚构角色' : '历史人物'}</span>
-          {character.source && <span>来源: {formatSourceDisplay(character.source)}</span>}
+          <div className="char-avatar-wrapper">
+            {character.imageUrl ? (
+              <img src={character.imageUrl} alt={character.name} className="char-avatar" />
+            ) : (
+              <div className="char-avatar-placeholder">
+                <svg viewBox="0 0 24 24" width="40" height="40" fill="none" stroke="currentColor" strokeWidth="1.5">
+                  <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+                  <circle cx="12" cy="7" r="4" />
+                </svg>
+              </div>
+            )}
+          </div>
+          <div className="char-title-info">
+            <div className="char-title-text">
+              <h1 className="glitch">{character.name}</h1>
+              <span className={`badge badge-${character.status}`}>
+                <span className="badge-dot" />
+                {statusLabel(character.status)}
+              </span>
+              <DeleteCharacterButton characterId={characterId} characterName={character.name} />
+            </div>
+            <div className="char-meta">
+              <span>{character.type === 'fictional' ? '虚构角色' : '历史人物'}</span>
+              {character.source && <span>来源: {formatSourceDisplay(character.source)}</span>}
+            </div>
+          </div>
         </div>
         {character.description && (
           <p style={{ marginTop: '0.75rem', color: 'var(--text-secondary)' }}>{character.description}</p>

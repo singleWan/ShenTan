@@ -46,6 +46,7 @@ export default async function HomePage() {
               type={c.type}
               source={c.source}
               status={c.status}
+              imageUrl={c.imageUrl}
             />
           ))}
         </div>

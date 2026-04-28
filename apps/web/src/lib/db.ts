@@ -24,6 +24,7 @@ export const characters = sqliteTable('characters', {
   source: text(),
   description: text(),
   aliases: text(),
+  imageUrl: text('image_url'),
   status: text().notNull().default('pending'),
   createdAt: text('created_at').notNull(),
   updatedAt: text('updated_at').notNull(),
@@ -118,6 +119,7 @@ CREATE TABLE IF NOT EXISTS characters (
   source TEXT,
   description TEXT,
   aliases TEXT,
+  image_url TEXT,
   status TEXT NOT NULL DEFAULT 'pending',
   created_at TEXT NOT NULL DEFAULT (datetime('now')),
   updated_at TEXT NOT NULL DEFAULT (datetime('now'))
@@ -203,6 +205,8 @@ CREATE INDEX IF NOT EXISTS background_tasks_character_idx ON background_tasks(ch
 
 const MIGRATE_ADD_ALIASES = `ALTER TABLE characters ADD COLUMN aliases TEXT;`;
 
+const MIGRATE_ADD_IMAGE_URL = `ALTER TABLE characters ADD COLUMN image_url TEXT;`;
+
 let _db: ReturnType<typeof drizzle> | null = null;
 
 export function getDb() {
@@ -215,6 +219,12 @@ export function getDb() {
     // 兼容已有数据库：添加 aliases 列
     try {
       sqlite.exec(MIGRATE_ADD_ALIASES);
+    } catch {
+      // 列已存在，忽略错误
+    }
+    // 兼容已有数据库：添加 image_url 列
+    try {
+      sqlite.exec(MIGRATE_ADD_IMAGE_URL);
     } catch {
       // 列已存在，忽略错误
     }

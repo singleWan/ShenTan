@@ -59,6 +59,10 @@ export async function updateCharacterDescription(db: Database, id: number, descr
   await db.update(characters).set({ description, updatedAt: new Date().toISOString() }).where(eq(characters.id, id));
 }
 
+export async function updateCharacterImageUrl(db: Database, id: number, imageUrl: string) {
+  await db.update(characters).set({ imageUrl, updatedAt: new Date().toISOString() }).where(eq(characters.id, id));
+}
+
 export async function updateCharacterAliases(db: Database, id: number, aliases: CharacterAlias[]) {
   await db.update(characters).set({
     aliases: JSON.stringify(aliases),

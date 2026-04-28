@@ -11,9 +11,10 @@ interface CharacterCardProps {
   type: string;
   source: string | null;
   status: string;
+  imageUrl: string | null;
 }
 
-export default function CharacterCard({ id, name, type, source, status }: CharacterCardProps) {
+export default function CharacterCard({ id, name, type, source, status, imageUrl }: CharacterCardProps) {
   const router = useRouter();
   const [showConfirm, setShowConfirm] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -41,6 +42,18 @@ export default function CharacterCard({ id, name, type, source, status }: Charac
     <>
       <Link href={`/characters/${id}`} className="card-link">
         <div className="character-card hud-card">
+          <div className="card-image-wrapper">
+            {imageUrl ? (
+              <img src={imageUrl} alt={name} className="card-image" loading="lazy" />
+            ) : (
+              <div className="card-image-placeholder">
+                <svg viewBox="0 0 24 24" width="32" height="32" fill="none" stroke="currentColor" strokeWidth="1.5">
+                  <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+                  <circle cx="12" cy="7" r="4" />
+                </svg>
+              </div>
+            )}
+          </div>
           <div className="card-header">
             <h3>{name}</h3>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
