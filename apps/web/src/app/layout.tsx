@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import { Orbitron, JetBrains_Mono } from 'next/font/google';
+import { ErrorBoundary } from '@/components/ErrorBoundary';
 import './globals.css';
 
 const orbitron = Orbitron({
@@ -26,7 +27,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body>
         <div className="bg-grid" />
         <div className="scan-line" />
-        {children}
+        <ErrorBoundary>
+          {children}
+        </ErrorBoundary>
       </body>
     </html>
   );

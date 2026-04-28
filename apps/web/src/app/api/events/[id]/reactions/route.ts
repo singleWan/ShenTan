@@ -1,9 +1,13 @@
 import { startReactionTask, getTask, subscribe, cancelTask } from '@/lib/task/runner';
+import { rateLimitResponse } from '@/lib/shared/rate-limiter';
 
 export async function POST(
   request: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
+  const limited = rateLimitResponse(request, 'reactions');
+  if (limited) return limited;
+
   const { id } = await params;
   const eventId = parseInt(id, 10);
   if (isNaN(eventId)) {

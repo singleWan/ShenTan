@@ -1,8 +1,11 @@
 import { startCollection, getTask, subscribe, cancelTask } from '@/lib/collect/runner';
 import { getTaskFromDb } from '@/lib/collect/task-store';
+import { rateLimitResponse } from '@/lib/shared/rate-limiter';
 
 // POST /api/collect — 启动收集任务
 export async function POST(request: Request) {
+  const limited = rateLimitResponse(request, 'collect');
+  if (limited) return limited;
   let body: {
     characterName?: string;
     characterType?: string;

@@ -1,7 +1,10 @@
 import { startExpandTask, getTask, subscribe, cancelTask } from '@/lib/task/runner';
 import { getBgTask } from '@/lib/task-manager/store';
+import { rateLimitResponse } from '@/lib/shared/rate-limiter';
 
 export async function POST(request: Request) {
+  const limited = rateLimitResponse(request, 'expand');
+  if (limited) return limited;
   let body: {
     characterId?: number;
     characterName?: string;
