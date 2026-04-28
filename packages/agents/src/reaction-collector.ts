@@ -2,9 +2,9 @@ import type { LanguageModel } from 'ai';
 import type { Database, CharacterAlias } from '@shentan/core';
 import { REACTION_COLLECTOR_SYSTEM_PROMPT } from './prompts/reaction-collector.js';
 import { runAgentLoop, type AgentRunResult } from './agent-runner.js';
-import { formatAliasesForPrompt } from './alias-resolver.js';
 import { getDateContext } from './date-context.js';
 import { buildSourceSection } from './source-context.js';
+import { buildAliasSection } from './utils/context-builder.js';
 
 export interface EventInfo {
   id: number;
@@ -36,10 +36,8 @@ export async function runReactionCollectorForEvent(opts: PerEventOptions): Promi
   const log = (msg: string) => onLog?.(msg);
   log(`[ReactionCollector] 收集事件反应: "${event.title}" (ID: ${event.id}, 重要度: ${event.importance ?? '?'})`);
 
-  const aliasSection = aliases && aliases.length > 0
-    ? `\n## 角色搜索别名\n\n角色 "${characterName}" 在不同平台/语言下的搜索关键字：\n${formatAliasesForPrompt(aliases)}\n\n搜索反应时请使用以上别名扩展搜索范围。\n`
-    : '';
-
+  const aliasSection = buildAliasSection(characterName, aliases,
+    '搜索反应时请使用以上别名扩展搜索范围。');
   const sourceWorks = source && source.length > 0 ? source.map(s => `「${s}」`).join('、') : '';
   const sourceSection = buildSourceSection(source,
     sourceWorks ? `请优先搜索与${sourceWorks}相关的读者/观众反应。` : '');

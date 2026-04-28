@@ -2,9 +2,9 @@ import type { LanguageModel } from 'ai';
 import type { Database, CharacterAlias } from '@shentan/core';
 import { BIOGRAPHER_SYSTEM_PROMPT } from './prompts/biographer.js';
 import { runAgentLoop, type AgentRunResult } from './agent-runner.js';
-import { formatAliasesForPrompt } from './alias-resolver.js';
 import { getDateContext } from './date-context.js';
 import { buildSourceSection } from './source-context.js';
+import { buildAliasSection } from './utils/context-builder.js';
 
 export type { AgentRunResult };
 
@@ -24,10 +24,7 @@ export async function runBiographer(
   const log = (msg: string) => onLog?.(msg);
   log(`[Biographer] 开始收集 "${characterName}" 的生平事迹...`);
 
-  const aliasSection = aliases && aliases.length > 0
-    ? `\n## 角色搜索别名\n\n角色 "${characterName}" 在不同平台/语言下的搜索关键字：\n${formatAliasesForPrompt(aliases)}\n\n搜索时请使用以上所有别名分别搜索，不同别名可能找到不同维度的信息。\n`
-    : '';
-
+  const aliasSection = buildAliasSection(characterName, aliases);
   const sourceSection = buildSourceSection(source,
     '请优先从该作品中搜索和提取角色的生平事件与相关信息。');
 
