@@ -104,12 +104,13 @@ CREATE INDEX IF NOT EXISTS background_tasks_character_idx ON background_tasks(ch
 `;
 
 // 兼容已有数据库的增量迁移
-const MIGRATIONS = [
-  `ALTER TABLE characters ADD COLUMN aliases TEXT;`,
-  `ALTER TABLE characters ADD COLUMN image_url TEXT;`,
-  `ALTER TABLE events ADD COLUMN updated_at TEXT NOT NULL DEFAULT (datetime('now'));`,
-  `ALTER TABLE reactions ADD COLUMN status TEXT NOT NULL DEFAULT 'active';`,
-  `ALTER TABLE reactions ADD COLUMN collection_id TEXT;`,
+// 注意: ALTER TABLE ADD COLUMN 不支持非常量默认值（如 datetime('now')），必须用常量 + postUpdate 回填
+const MIGRATIONS: Array<{ sql: string; postUpdate?: string }> = [
+  { sql: `ALTER TABLE characters ADD COLUMN aliases TEXT;` },
+  { sql: `ALTER TABLE characters ADD COLUMN image_url TEXT;` },
+  { sql: `ALTER TABLE events ADD COLUMN updated_at TEXT NOT NULL DEFAULT '1970-01-01T00:00:00Z';`, postUpdate: `UPDATE events SET updated_at = created_at;` },
+  { sql: `ALTER TABLE reactions ADD COLUMN status TEXT NOT NULL DEFAULT 'active';` },
+  { sql: `ALTER TABLE reactions ADD COLUMN collection_id TEXT;` },
 ];
 
 export async function initDatabase(dbPath?: string) {
@@ -121,9 +122,10 @@ export async function initDatabase(dbPath?: string) {
   await db.run(CREATE_BACKGROUND_TASKS);
 
   // 兼容已有数据库：增量添加新列
-  for (const sql of MIGRATIONS) {
+  for (const migration of MIGRATIONS) {
     try {
-      await db.run(sql);
+      await db.run(migration.sql);
+      if (migration.postUpdate) await db.run(migration.postUpdate);
     } catch {
       // 列已存在，忽略错误
     }

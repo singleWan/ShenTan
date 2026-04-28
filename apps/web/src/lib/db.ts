@@ -115,12 +115,12 @@ CREATE INDEX IF NOT EXISTS background_tasks_character_idx ON background_tasks(ch
 `;
 
 // 兼容已有数据库的增量迁移（忽略已存在的列）
-const MIGRATIONS = [
-  `ALTER TABLE characters ADD COLUMN aliases TEXT;`,
-  `ALTER TABLE characters ADD COLUMN image_url TEXT;`,
-  `ALTER TABLE events ADD COLUMN updated_at TEXT NOT NULL DEFAULT (datetime('now'));`,
-  `ALTER TABLE reactions ADD COLUMN status TEXT NOT NULL DEFAULT 'active';`,
-  `ALTER TABLE reactions ADD COLUMN collection_id TEXT;`,
+const MIGRATIONS: Array<{ sql: string; postUpdate?: string }> = [
+  { sql: `ALTER TABLE characters ADD COLUMN aliases TEXT;` },
+  { sql: `ALTER TABLE characters ADD COLUMN image_url TEXT;` },
+  { sql: `ALTER TABLE events ADD COLUMN updated_at TEXT NOT NULL DEFAULT '1970-01-01T00:00:00Z';`, postUpdate: `UPDATE events SET updated_at = created_at;` },
+  { sql: `ALTER TABLE reactions ADD COLUMN status TEXT NOT NULL DEFAULT 'active';` },
+  { sql: `ALTER TABLE reactions ADD COLUMN collection_id TEXT;` },
 ];
 
 let _db: ReturnType<typeof drizzle> | null = null;
@@ -132,9 +132,10 @@ export function getDb() {
     const sqlite = new Database(resolvedPath);
     sqlite.pragma('journal_mode = WAL');
     sqlite.exec(CREATE_TABLES);
-    for (const sql of MIGRATIONS) {
+    for (const migration of MIGRATIONS) {
       try {
-        sqlite.exec(sql);
+        sqlite.exec(migration.sql);
+        if (migration.postUpdate) sqlite.exec(migration.postUpdate);
       } catch {
         // 列已存在，忽略错误
       }
