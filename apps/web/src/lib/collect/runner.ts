@@ -2,7 +2,7 @@ import { fork, type ChildProcess } from 'node:child_process';
 import { resolve, dirname } from 'node:path';
 import { existsSync } from 'node:fs';
 import type { CollectOptions, CollectTask, SSEData, ProgressData } from './types';
-import { createTaskInDb, updateTaskInDb, getRunningTasksFromDb } from './task-store';
+import { createTaskInDb, updateTaskInDb, getActiveTasksFromDb, getTaskFromDb } from './task-store';
 
 const tasks = new Map<string, CollectTask>();
 const processes = new Map<string, ChildProcess>();
@@ -180,23 +180,22 @@ export function startCollection(options: CollectOptions): { taskId: string; erro
   return { taskId };
 }
 
-export function continueCollection(input: {
-  characterId: number;
-  characterName: string;
-  characterType: string;
-  source?: string[];
-  maxRounds?: number;
-  aliases?: string;
-}): { taskId: string; error?: string } {
+export async function resumeCollection(taskId: string): Promise<{ taskId: string; error?: string }> {
   const maxConcurrent = getMaxConcurrent();
   if (getRunningCount() >= maxConcurrent) {
     return { taskId: '', error: `并发任务已达上限 (${maxConcurrent})，请等待现有任务完成` };
   }
 
-  const taskId = crypto.randomUUID();
+  // 从 DB 读取原任务记录
+  const dbTask = await getTaskFromDb(taskId);
+  if (!dbTask) {
+    return { taskId: '', error: '任务记录不存在' };
+  }
+
+  // 用相同 ID 创建内存任务
   const task: CollectTask = {
     id: taskId,
-    characterName: input.characterName,
+    characterName: dbTask.characterName,
     status: 'starting',
     startedAt: new Date().toISOString(),
     logs: [],
@@ -204,28 +203,32 @@ export function continueCollection(input: {
   };
   tasks.set(taskId, task);
 
+  // 重新 fork 子进程
   const proc = forkAgentRunner(taskId, task);
 
-  createTaskInDb({
-    id: taskId,
-    characterName: input.characterName,
-    characterType: input.characterType,
-    source: input.source,
-    maxRounds: input.maxRounds,
-    aliases: input.aliases,
-    characterId: input.characterId,
+  // 更新 DB：重置状态，清空旧数据
+  updateTaskInDb(taskId, {
+    status: 'starting',
+    startedAt: new Date().toISOString(),
+    completedAt: null,
+    error: null,
+    result: null,
+    progress: null,
     pid: proc.pid ?? undefined,
   }).catch(() => {});
+
+  // 解析 source 配置
+  const source = dbTask.source ? JSON.parse(dbTask.source) : undefined;
 
   proc.send({
     type: 'start',
     payload: {
-      characterName: input.characterName,
-      characterType: input.characterType,
-      source: input.source,
-      maxRounds: input.maxRounds,
-      aliases: input.aliases,
-      existingCharacterId: input.characterId,
+      characterName: dbTask.characterName,
+      characterType: dbTask.characterType,
+      source,
+      maxRounds: dbTask.maxRounds ?? 5,
+      aliases: dbTask.aliases ?? undefined,
+      existingCharacterId: dbTask.characterId ?? undefined,
       dbPath: getDbPath(),
       logDir: getLogDir(),
       taskId,
@@ -278,15 +281,22 @@ export function subscribe(taskId: string, callback: (data: SSEData) => void): ()
   return () => task.subscribers.delete(callback);
 }
 
-// 重启恢复：将 DB 中 running 状态的任务标记为 failed
+// 重启恢复：将 DB 中活跃但不在内存中的任务标记为 interrupted（可继续）
 export async function recoverTasks() {
   try {
-    const running = await getRunningTasksFromDb();
-    for (const task of running) {
+    const active = await getActiveTasksFromDb();
+    // 跳过最近 2 分钟内更新的任务（可能是刚恢复或 HMR 导致的误判）
+    const RECENT_THRESHOLD = 2 * 60 * 1000;
+    for (const task of active) {
+      // 跳过仍在内存中运行的任务（当前进程启动的）
+      if (tasks.has(task.id)) continue;
+      // 跳过近期更新的任务，避免 HMR/模块重载误伤
+      if (task.updatedAt && Date.now() - new Date(task.updatedAt).getTime() < RECENT_THRESHOLD) continue;
+
       await updateTaskInDb(task.id, {
-        status: 'failed',
+        status: 'interrupted',
         completedAt: new Date().toISOString(),
-        error: '服务器重启，任务中断',
+        error: '服务器重启，任务中断。可点击继续恢复执行。',
       });
     }
   } catch {

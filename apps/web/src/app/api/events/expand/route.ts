@@ -1,4 +1,5 @@
 import { startExpandTask, getTask, subscribe, cancelTask } from '@/lib/task/runner';
+import { getBgTask } from '@/lib/task-manager/store';
 
 export async function POST(request: Request) {
   let body: {
@@ -48,11 +49,55 @@ export async function GET(request: Request) {
     return Response.json({ error: '缺少 taskId' }, { status: 400 });
   }
 
+  // 优先从内存获取活跃任务
   const task = getTask(taskId);
-  if (!task) {
+  if (task) {
+    return createExpandSseResponse(task, taskId, request);
+  }
+
+  // 内存中没有，从 DB 获取最终状态
+  const dbTask = getBgTask(taskId);
+  if (!dbTask) {
     return Response.json({ error: '任务不存在' }, { status: 404 });
   }
 
+  // 返回 DB 中的最终状态
+  const encoder = new TextEncoder();
+  const events: string[] = [];
+
+  if (dbTask.status === 'completed' && dbTask.result) {
+    try {
+      events.push(`data: ${JSON.stringify({ type: 'complete', result: JSON.parse(dbTask.result) })}\n\n`);
+    } catch {
+      events.push(`data: ${JSON.stringify({ type: 'complete', result: dbTask.result })}\n\n`);
+    }
+  } else if (dbTask.status === 'failed') {
+    events.push(`data: ${JSON.stringify({ type: 'error', message: dbTask.error || '任务失败' })}\n\n`);
+  } else if (dbTask.status === 'cancelled') {
+    events.push(`data: ${JSON.stringify({ type: 'cancelled' })}\n\n`);
+  } else {
+    events.push(`data: ${JSON.stringify({ type: 'error', message: '任务已中断，请重试' })}\n\n`);
+  }
+
+  const stream = new ReadableStream({
+    start(controller) {
+      for (const event of events) {
+        controller.enqueue(encoder.encode(event));
+      }
+      controller.close();
+    },
+  });
+
+  return new Response(stream, {
+    headers: {
+      'Content-Type': 'text/event-stream',
+      'Cache-Control': 'no-cache',
+      'Connection': 'keep-alive',
+    },
+  });
+}
+
+function createExpandSseResponse(task: NonNullable<ReturnType<typeof getTask>>, taskId: string, request: Request): Response {
   const encoder = new TextEncoder();
   const stream = new ReadableStream({
     start(controller) {

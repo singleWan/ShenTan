@@ -1,5 +1,5 @@
 import { getDb, collectionTasks } from '../db';
-import { eq, desc } from 'drizzle-orm';
+import { eq, desc, or } from 'drizzle-orm';
 
 export async function getTaskFromDb(taskId: string) {
   const db = getDb();
@@ -35,27 +35,35 @@ export async function createTaskInDb(input: {
 }
 
 export async function updateTaskInDb(taskId: string, updates: {
-  characterId?: number;
+  characterId?: number | null;
   status?: string;
-  logPath?: string;
-  pid?: number;
-  startedAt?: string;
-  completedAt?: string;
-  result?: string;
-  error?: string;
-  progress?: string;
+  logPath?: string | null;
+  pid?: number | null;
+  startedAt?: string | null;
+  completedAt?: string | null;
+  result?: string | null;
+  error?: string | null;
+  progress?: string | null;
 }) {
   const db = getDb();
+  // 过滤掉 undefined 的字段（undefined 表示不更新，null 表示清空）
+  const filtered = Object.fromEntries(
+    Object.entries(updates).filter(([_, v]) => v !== undefined)
+  );
   db.update(collectionTasks).set({
-    ...updates,
+    ...filtered,
     updatedAt: new Date().toISOString(),
   }).where(eq(collectionTasks.id, taskId)).run();
 }
 
-export async function getRunningTasksFromDb() {
+export async function getActiveTasksFromDb() {
   const db = getDb();
   return db.select().from(collectionTasks)
-    .where(eq(collectionTasks.status, 'running'))
+    .where(or(
+      eq(collectionTasks.status, 'running'),
+      eq(collectionTasks.status, 'starting'),
+      eq(collectionTasks.status, 'pending'),
+    ))
     .orderBy(desc(collectionTasks.createdAt))
     .all();
 }

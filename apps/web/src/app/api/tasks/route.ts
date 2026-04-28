@@ -1,13 +1,13 @@
 import { getAllTasks as getAllTasksFromStore, type UnifiedTaskType } from '@/lib/task-manager/store';
 import { getTask as getCollectTask, recoverTasks } from '@/lib/collect/runner';
-import { getTask as getBgTask } from '@/lib/task/runner';
+import { getTask as getBgTask, recoverBgTasks } from '@/lib/task/runner';
 
 // 服务器启动时恢复未完成任务
 let recovered = false;
 async function ensureRecovered() {
   if (!recovered) {
     recovered = true;
-    await recoverTasks();
+    await Promise.all([recoverTasks(), recoverBgTasks()]);
   }
 }
 

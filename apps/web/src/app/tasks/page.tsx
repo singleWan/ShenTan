@@ -50,6 +50,7 @@ const STATUS_LABELS: Record<string, string> = {
   completed: '已完成',
   failed: '失败',
   cancelled: '已取消',
+  interrupted: '已中断',
 };
 
 const STAGE_LABELS: Record<string, string> = {
@@ -218,32 +219,13 @@ export default function TasksPage() {
     fetchTasks();
   };
 
-  const handleRetry = async (taskId: string) => {
-    const res = await fetch(`/api/tasks/${taskId}/retry`, { method: 'POST' });
-    if (res.ok) {
-      const data = await res.json();
-      setExpandedId(null);
-      await fetchTasks();
-      // 自动展开新任务
-      if (data.taskId) {
-        setTimeout(() => toggleExpand(data.taskId, 'starting', 'collection'), 500);
-      }
-    } else {
-      const err = await res.json();
-      alert(err.error || '重试失败');
-    }
-  };
-
-  const handleContinue = async (taskId: string) => {
+  const handleContinue = async (taskId: string, taskType: string) => {
     const res = await fetch(`/api/tasks/${taskId}/continue`, { method: 'POST' });
     if (res.ok) {
-      const data = await res.json();
-      setExpandedId(null);
       if (sseRef.current) { sseRef.current.close(); sseRef.current = null; }
       await fetchTasks();
-      if (data.taskId) {
-        setTimeout(() => toggleExpand(data.taskId, 'starting', 'collection'), 500);
-      }
+      // 自动展开任务显示实时日志
+      setTimeout(() => toggleExpand(taskId, 'starting', taskType), 500);
     } else {
       const err = await res.json();
       alert(err.error || '继续任务失败');
@@ -414,20 +396,12 @@ export default function TasksPage() {
                           查看角色
                         </Link>
                       )}
-                      {task.status === 'failed' && task.type === 'collection' && task.characterId && (
+                      {(task.status === 'failed' || task.status === 'cancelled' || task.status === 'interrupted') && (
                         <button
                           className="btn-task btn-task-continue"
-                          onClick={() => handleContinue(task.id)}
+                          onClick={() => handleContinue(task.id, task.type)}
                         >
                           继续
-                        </button>
-                      )}
-                      {task.status === 'failed' && (
-                        <button
-                          className="btn-task btn-task-retry"
-                          onClick={() => handleRetry(task.id)}
-                        >
-                          重试
                         </button>
                       )}
                       {!isRunning(task.status) && (

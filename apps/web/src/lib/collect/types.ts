@@ -6,7 +6,7 @@ export interface CollectOptions {
   aliases?: string;
 }
 
-export type TaskStatus = 'starting' | 'running' | 'completed' | 'failed' | 'cancelled';
+export type TaskStatus = 'starting' | 'running' | 'completed' | 'failed' | 'cancelled' | 'interrupted';
 
 export interface ProgressData {
   stage: string;

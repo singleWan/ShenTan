@@ -1,5 +1,5 @@
 import { getDb, collectionTasks, backgroundTasks } from '../db';
-import { eq, desc } from 'drizzle-orm';
+import { eq, desc, or } from 'drizzle-orm';
 
 // 统一任务视图类型
 export type UnifiedTaskType = 'collection' | 'expand-events' | 'collect-reactions';
@@ -53,15 +53,18 @@ export function createBgTask(input: {
 
 export function updateBgTask(id: string, updates: {
   status?: string;
-  result?: string;
-  error?: string;
-  progress?: string;
-  startedAt?: string;
-  completedAt?: string;
+  result?: string | null;
+  error?: string | null;
+  progress?: string | null;
+  startedAt?: string | null;
+  completedAt?: string | null;
 }) {
   const db = getDb();
+  const filtered = Object.fromEntries(
+    Object.entries(updates).filter(([_, v]) => v !== undefined)
+  );
   db.update(backgroundTasks).set({
-    ...updates,
+    ...filtered,
     updatedAt: new Date().toISOString(),
   }).where(eq(backgroundTasks.id, id)).run();
 }
@@ -236,4 +239,17 @@ export function clearTasks(statuses: string[]): number {
   }
 
   return deleted;
+}
+
+// 获取 DB 中活跃的后台任务（用于服务器重启恢复）
+export async function getActiveBgTasksFromDb() {
+  const db = getDb();
+  return db.select().from(backgroundTasks)
+    .where(or(
+      eq(backgroundTasks.status, 'running'),
+      eq(backgroundTasks.status, 'starting'),
+      eq(backgroundTasks.status, 'pending'),
+    ))
+    .orderBy(desc(backgroundTasks.createdAt))
+    .all();
 }
