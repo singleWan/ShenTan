@@ -203,8 +203,24 @@ pnpm install          # 安装依赖
 pnpm build            # 构建所有包
 pnpm dev              # 开发模式运行 CLI
 pnpm web              # 启动 Web 开发服务器
+pnpm test             # 运行全部测试
+pnpm test:watch       # 监听模式运行测试
 pnpm db:generate      # 生成 Drizzle 迁移文件
 pnpm db:migrate       # 执行数据库迁移
+```
+
+### 测试
+
+项目使用 Vitest 测试框架。当前测试覆盖关键纯逻辑模块：
+
+- **日期标准化** — 中文日期、英文日期、虚构角色日期解析
+- **错误类型** — 结构化错误层次、错误码映射
+- **并发控制** — Promise 池模式、取消信号传播
+
+```bash
+pnpm test             # 运行全部测试
+pnpm test:watch       # 监听模式
+pnpm test:coverage    # 生成覆盖率报告
 ```
 
 ### 添加新 Agent
