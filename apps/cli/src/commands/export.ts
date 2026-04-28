@@ -95,7 +95,8 @@ function generateMarkdown(data: Awaited<ReturnType<typeof queries.exportCharacte
     lines.push(data!.character.description);
     lines.push('');
   }
-  lines.push(`> 类型: ${data!.character.type}${data!.character.source ? ` | 来源: ${data!.character.source}` : ''}`);
+  const sourceDisplay = data!.character.source ? data!.character.source.join('、') : '';
+  lines.push(`> 类型: ${data!.character.type}${sourceDisplay ? ` | 来源: ${sourceDisplay}` : ''}`);
   lines.push('');
   lines.push('---');
   lines.push('');

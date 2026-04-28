@@ -5,7 +5,7 @@ export async function POST(request: Request) {
   let body: {
     characterName?: string;
     characterType?: string;
-    source?: string;
+    source?: string[];
     maxRounds?: number;
     aliases?: string;
   };

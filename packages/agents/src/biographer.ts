@@ -18,7 +18,7 @@ export async function runBiographer(
   maxOutputTokens: number,
   onLog?: (msg: string) => void,
   aliases?: CharacterAlias[],
-  source?: string,
+  source?: string[],
 ): Promise<AgentRunResult> {
   const log = (msg: string) => onLog?.(msg);
   log(`[Biographer] 开始收集 "${characterName}" 的生平事迹...`);

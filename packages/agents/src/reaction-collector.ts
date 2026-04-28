@@ -27,7 +27,7 @@ export interface PerEventOptions {
   maxOutputTokens: number;
   onLog?: (msg: string) => void;
   aliases?: CharacterAlias[];
-  source?: string;
+  source?: string[];
 }
 
 export async function runReactionCollectorForEvent(opts: PerEventOptions): Promise<AgentRunResult> {
@@ -39,8 +39,9 @@ export async function runReactionCollectorForEvent(opts: PerEventOptions): Promi
     ? `\n## 角色搜索别名\n\n角色 "${characterName}" 在不同平台/语言下的搜索关键字：\n${formatAliasesForPrompt(aliases)}\n\n搜索反应时请使用以上别名扩展搜索范围。\n`
     : '';
 
+  const sourceWorks = source && source.length > 0 ? source.map(s => `「${s}」`).join('、') : '';
   const sourceSection = buildSourceSection(source,
-    source ? `请优先搜索与「${source}」相关的读者/观众反应。` : '');
+    sourceWorks ? `请优先搜索与${sourceWorks}相关的读者/观众反应。` : '');
 
   const eventDetail = [
     `事件ID: ${event.id}`,

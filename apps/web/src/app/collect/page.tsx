@@ -22,7 +22,8 @@ export default function CollectPage() {
   const [state, setState] = useState<PageState>('form');
   const [name, setName] = useState('');
   const [type, setType] = useState<'historical' | 'fictional'>('historical');
-  const [source, setSource] = useState('');
+  const [sourceTags, setSourceTags] = useState<string[]>([]);
+  const [sourceInput, setSourceInput] = useState('');
   const [rounds, setRounds] = useState(5);
   const [aliasInput, setAliasInput] = useState('');
   const [aliasTags, setAliasTags] = useState<string[]>([]);
@@ -77,6 +78,31 @@ export default function CollectPage() {
     }
   }, [aliasInput, aliasTags, addAliasTag, removeAliasTag]);
 
+  const addSourceTag = useCallback((tag: string) => {
+    const trimmed = tag.trim();
+    if (trimmed && !sourceTags.includes(trimmed)) {
+      setSourceTags(prev => [...prev, trimmed]);
+    }
+  }, [sourceTags]);
+
+  const removeSourceTag = useCallback((index: number) => {
+    setSourceTags(prev => prev.filter((_, i) => i !== index));
+  }, []);
+
+  const handleSourceKeyDown = useCallback((e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter' || e.key === ',') {
+      e.preventDefault();
+      const value = sourceInput.replace(/[,，]/g, '').trim();
+      if (value) {
+        addSourceTag(value);
+        setSourceInput('');
+      }
+    }
+    if (e.key === 'Backspace' && sourceInput === '' && sourceTags.length > 0) {
+      removeSourceTag(sourceTags.length - 1);
+    }
+  }, [sourceInput, sourceTags, addSourceTag, removeSourceTag]);
+
   const handleSSE = useCallback((id: string) => {
     const es = new EventSource(`/api/collect?taskId=${id}`);
 
@@ -125,13 +151,22 @@ export default function CollectPage() {
       });
     }
 
+    // 处理输入框中残留的来源
+    const allSources = [...sourceTags];
+    if (sourceInput.trim()) {
+      sourceInput.split(/[,，]/).forEach(s => {
+        const trimmed = s.trim();
+        if (trimmed && !allSources.includes(trimmed)) allSources.push(trimmed);
+      });
+    }
+
     const res = await fetch('/api/collect', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         characterName: name.trim(),
         characterType: type,
-        source: source || undefined,
+        source: allSources.length > 0 ? allSources : undefined,
         maxRounds: rounds,
         aliases: allAliases.length > 0 ? allAliases.join(',') : undefined,
       }),
@@ -159,7 +194,8 @@ export default function CollectPage() {
 
   const handleReset = () => {
     setName('');
-    setSource('');
+    setSourceTags([]);
+    setSourceInput('');
     setResult(null);
     setError('');
     setLogs([]);
@@ -213,12 +249,29 @@ export default function CollectPage() {
           {type === 'fictional' && (
             <div className="form-group">
               <label>来源作品</label>
-              <input
-                type="text"
-                value={source}
-                onChange={(e) => setSource(e.target.value)}
-                placeholder="如：哈利波特系列、三国演义..."
-              />
+              <div className="alias-input-container">
+                {sourceTags.map((tag, i) => (
+                  <span key={i} className="alias-tag">
+                    {tag}
+                    <button type="button" className="alias-tag-remove" onClick={() => removeSourceTag(i)}>×</button>
+                  </span>
+                ))}
+                <input
+                  type="text"
+                  value={sourceInput}
+                  onChange={(e) => setSourceInput(e.target.value)}
+                  onKeyDown={handleSourceKeyDown}
+                  onBlur={() => {
+                    if (sourceInput.trim()) {
+                      addSourceTag(sourceInput.trim());
+                      setSourceInput('');
+                    }
+                  }}
+                  placeholder={sourceTags.length === 0 ? '输入来源作品后回车添加，如：哈利波特系列、三国演义...' : '继续输入...'}
+                  className="alias-input"
+                />
+              </div>
+              <small className="form-hint">回车或逗号添加来源作品，可输入多个</small>
             </div>
           )}
 

@@ -13,16 +13,26 @@ import type {
 import { normalizeDate, interpolateDateSortables } from '../utils/date-normalizer.js';
 
 // Character 查询
+// 解析 source 字段，兼容旧数据（纯字符串）和新数据（JSON 数组）
+export function parseSource(raw: string | null): string[] | null {
+  if (!raw) return null;
+  try {
+    const parsed = JSON.parse(raw);
+    if (Array.isArray(parsed)) return parsed;
+  } catch { /* 旧数据：纯字符串 */ }
+  return [raw];
+}
+
 export async function createCharacter(db: Database, input: {
   name: string;
   type: CharacterType;
-  source?: string;
+  source?: string[];
   description?: string;
 }) {
   const result = await db.insert(characters).values({
     name: input.name,
     type: input.type,
-    source: input.source ?? null,
+    source: input.source ? JSON.stringify(input.source) : null,
     description: input.description ?? null,
     status: 'pending',
   }).returning();
@@ -334,7 +344,7 @@ export async function exportCharacter(db: Database, characterId: number): Promis
     character: {
       name: character.name,
       type: character.type as CharacterType,
-      source: character.source,
+      source: parseSource(character.source),
       description: character.description,
       aliases: character.aliases,
     },

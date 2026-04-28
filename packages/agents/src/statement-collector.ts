@@ -16,7 +16,7 @@ export async function runStatementCollector(
   maxOutputTokens: number,
   onLog?: (msg: string) => void,
   aliases?: CharacterAlias[],
-  source?: string,
+  source?: string[],
 ): Promise<AgentRunResult> {
   const log = (msg: string) => onLog?.(msg);
   log(`[StatementCollector] 开始收集 "${characterName}" 的发言、政策与声明...`);

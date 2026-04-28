@@ -17,7 +17,7 @@ program
   .command('collect <name>')
   .description('收集指定角色的生平事迹和各方反应')
   .option('-t, --type <type>', '角色类型: historical(历史人物) 或 fictional(虚构角色)', 'historical')
-  .option('-s, --source <source>', '角色来源（如"哈利波特系列"）')
+  .option('-s, --source <source>', '角色来源，逗号分隔多个（如"哈利波特系列,神奇动物"）')
   .option('-r, --rounds <rounds>', '事件拓展最大轮次（动态收敛，实际可能更少）', '5')
   .option('-a, --aliases <aliases>', '用户自定义别名，逗号分隔（如 "川普,Trump,川建国"）')
   .option('--db <path>', '数据库文件路径')

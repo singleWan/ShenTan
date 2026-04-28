@@ -2,7 +2,7 @@ import { getCharacter, getCharacterEvents, getEventReactions } from '@/lib/data'
 import Link from 'next/link';
 import TimelineInteractive from '@/components/TimelineInteractive';
 import DeleteCharacterButton from '@/components/DeleteCharacterButton';
-import { statusLabel } from '@/lib/labels';
+import { statusLabel, formatSourceDisplay } from '@/lib/labels';
 
 export const dynamic = 'force-dynamic';
 
@@ -75,7 +75,7 @@ export default async function CharacterPage({ params }: { params: Promise<{ id: 
         </div>
         <div className="char-meta">
           <span>{character.type === 'fictional' ? '虚构角色' : '历史人物'}</span>
-          {character.source && <span>来源: {character.source}</span>}
+          {character.source && <span>来源: {formatSourceDisplay(character.source)}</span>}
         </div>
         {character.description && (
           <p style={{ marginTop: '0.75rem', color: 'var(--text-secondary)' }}>{character.description}</p>

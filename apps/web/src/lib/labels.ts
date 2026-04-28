@@ -39,3 +39,13 @@ export function categoryLabel(category: string): string {
 export function sentimentLabel(sentiment: string): string {
   return SENTIMENT_LABELS[sentiment] ?? sentiment;
 }
+
+// 解析 source 字段，兼容旧数据（纯字符串）和新数据（JSON 数组）
+export function formatSourceDisplay(raw: string | null): string | null {
+  if (!raw) return null;
+  try {
+    const parsed = JSON.parse(raw);
+    if (Array.isArray(parsed)) return parsed.join('、');
+  } catch { /* 旧数据：纯字符串 */ }
+  return raw;
+}

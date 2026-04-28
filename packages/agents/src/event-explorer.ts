@@ -17,7 +17,7 @@ export async function runEventExplorer(
   maxOutputTokens: number,
   onLog?: (msg: string) => void,
   aliases?: CharacterAlias[],
-  source?: string,
+  source?: string[],
 ): Promise<AgentRunResult> {
   const log = (msg: string) => onLog?.(msg);
   log(`[EventExplorer] 第 ${round} 轮事件拓展 "${characterName}"...`);

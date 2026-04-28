@@ -23,11 +23,14 @@ export async function collectCommand(
 
   const characterType = (options.type === 'fictional' || options.type === 'fiction') ? 'fictional' : 'historical';
   const maxRounds = options.rounds ? parseInt(options.rounds, 10) : 5;
+  const sourceList = options.source
+    ? options.source.split(/[,，]/).map(s => s.trim()).filter(s => s.length > 0)
+    : undefined;
 
   console.log(`\n🔍 神探 - 角色事迹收集系统`);
   console.log(`角色: ${name}`);
   console.log(`类型: ${characterType === 'fictional' ? '虚构角色' : '历史人物'}`);
-  if (options.source) console.log(`来源: ${options.source}`);
+  if (sourceList) console.log(`来源: ${sourceList.join('、')}`);
   if (options.aliases) console.log(`用户别名: ${options.aliases}`);
   console.log(`拓展轮次: 最少 2 轮，最多 ${maxRounds} 轮（动态收敛）`);
   console.log(`数据库: ${dbPath}\n`);
@@ -38,7 +41,7 @@ export async function collectCommand(
     const result = await runOrchestrator(db, {
       characterName: name,
       characterType: characterType as 'historical' | 'fictional',
-      source: options.source,
+      source: sourceList,
       maxExploreRounds: maxRounds,
       aliasesInput: options.aliases,
     });

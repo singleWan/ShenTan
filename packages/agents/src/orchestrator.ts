@@ -17,7 +17,7 @@ import { shouldContinue, formatQualityReport, type RoundQuality } from './qualit
 export interface OrchestratorOptions {
   characterName: string;
   characterType: 'historical' | 'fictional';
-  source?: string;
+  source?: string[];
   maxExploreRounds?: number;
   skipStatementCollection?: boolean;
   dbPath?: string;

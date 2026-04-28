@@ -1,7 +1,7 @@
 export interface CollectOptions {
   characterName: string;
   characterType: 'historical' | 'fictional';
-  source?: string;
+  source?: string[];
   maxRounds?: number;
   aliases?: string;
 }

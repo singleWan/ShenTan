@@ -119,7 +119,13 @@ export interface GetEventsInput {
 
 // 导出格式
 export interface CharacterExport {
-  character: Pick<Character, 'name' | 'type' | 'source' | 'description' | 'aliases'>;
+  character: {
+    name: string;
+    type: CharacterType;
+    source: string[] | null;
+    description: string | null;
+    aliases: string | null;
+  };
   timeline: Array<{
     id: number;
     date: string | null;

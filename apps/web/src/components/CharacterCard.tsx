@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { statusLabel } from '@/lib/labels';
+import { statusLabel, formatSourceDisplay } from '@/lib/labels';
 
 interface CharacterCardProps {
   id: number;
@@ -59,7 +59,7 @@ export default function CharacterCard({ id, name, type, source, status }: Charac
           </div>
           <div className="card-meta">
             <span>{type === 'fictional' ? '虚构角色' : '历史人物'}</span>
-            {source && <span>来源: {source}</span>}
+            {source && <span>来源: {formatSourceDisplay(source)}</span>}
           </div>
         </div>
       </Link>

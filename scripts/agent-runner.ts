@@ -47,7 +47,7 @@ loadEnvFile();
 interface StartPayload {
   characterName: string;
   characterType: 'historical' | 'fictional';
-  source?: string;
+  source?: string[];
   maxRounds?: number;
   aliases?: string;
   dbPath: string;
