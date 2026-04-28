@@ -68,7 +68,11 @@ export default async function CharacterPage({ params }: { params: Promise<{ id: 
         <div className="char-title-row">
           <div className="char-avatar-wrapper">
             {character.imageUrl ? (
-              <img src={character.imageUrl} alt={character.name} className="char-avatar" />
+              <img
+                src={character.imageUrl.startsWith('http') ? character.imageUrl : `/api/images/${character.imageUrl}`}
+                alt={character.name}
+                className="char-avatar"
+              />
             ) : (
               <div className="char-avatar-placeholder">
                 <svg viewBox="0 0 24 24" width="40" height="40" fill="none" stroke="currentColor" strokeWidth="1.5">

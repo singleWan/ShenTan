@@ -4,6 +4,8 @@ import { webSearch as doSearch, searchSocialMedia as doSearchSocialMedia, getDef
 import { scrapePage as doScrape } from '@shentan/crawler';
 import type { Database } from '@shentan/core';
 import * as queries from '@shentan/core/queries';
+import { resolve, dirname } from 'node:path';
+import { downloadImage } from '../utils/download.js';
 
 const EVENT_CATEGORIES = ['life', 'career', 'political', 'conflict', 'achievement', 'scandal', 'speech', 'policy', 'statement', 'rumor', 'other'] as const;
 
@@ -19,6 +21,11 @@ function formatResults(results: SearchResult[], maxResults: number): string {
 }
 
 export function createTools(db: Database) {
+  const imagesDir = (() => {
+    const dbPath = process.env.DATABASE_PATH ?? 'file:./data/shentan.db';
+    const cleanPath = dbPath.replace(/^file:/, '');
+    return resolve(dirname(resolve(cleanPath)), 'images');
+  })();
   const webSearch = tool({
     description: '搜索互联网获取信息。支持多种搜索模式和丰富的过滤选项。返回搜索结果列表（标题、URL、摘要、发布日期）。deep 模式支持关联性早停：提供 relevantKeywords 后会逐页评估关联度，关联太弱时自动停止翻页。',
     inputSchema: z.object({
@@ -183,7 +190,7 @@ export function createTools(db: Database) {
   });
 
   const updateCharacter = tool({
-    description: '更新角色信息（描述、状态、图片URL）。imageUrl 应该是从权威来源（如维基百科、官方页面）爬取到的角色海报或肖像图片的 URL。优先选择高质量、正面、清晰的图片。',
+    description: '更新角色信息（描述、状态、图片URL）。imageUrl 应该是从权威来源（如维基百科、官方页面）爬取到的角色海报或肖像图片的 URL。系统会自动下载图片到本地。优先选择高质量、正面、清晰的图片。',
     inputSchema: z.object({
       characterId: z.number().describe('角色ID'),
       description: z.string().optional().describe('角色描述'),
@@ -193,7 +200,14 @@ export function createTools(db: Database) {
     execute: async ({ characterId, description, status, imageUrl }) => {
       if (description) await queries.updateCharacterDescription(db, characterId, description);
       if (status) await queries.updateCharacterStatus(db, characterId, status);
-      if (imageUrl) await queries.updateCharacterImageUrl(db, characterId, imageUrl);
+      if (imageUrl) {
+        try {
+          const filename = await downloadImage(imageUrl, imagesDir, `character-${characterId}`);
+          await queries.updateCharacterImageUrl(db, characterId, filename);
+        } catch {
+          await queries.updateCharacterImageUrl(db, characterId, imageUrl);
+        }
+      }
       return '角色信息已更新';
     },
   });

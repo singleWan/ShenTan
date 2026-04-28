@@ -16,6 +16,9 @@ interface CharacterCardProps {
 
 export default function CharacterCard({ id, name, type, source, status, imageUrl }: CharacterCardProps) {
   const router = useRouter();
+  const imageSrc = imageUrl
+    ? imageUrl.startsWith('http') ? imageUrl : `/api/images/${imageUrl}`
+    : null;
   const [showConfirm, setShowConfirm] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
@@ -43,8 +46,8 @@ export default function CharacterCard({ id, name, type, source, status, imageUrl
       <Link href={`/characters/${id}`} className="card-link">
         <div className="character-card hud-card">
           <div className="card-image-wrapper">
-            {imageUrl ? (
-              <img src={imageUrl} alt={name} className="card-image" loading="lazy" />
+            {imageSrc ? (
+              <img src={imageSrc} alt={name} className="card-image" loading="lazy" />
             ) : (
               <div className="card-image-placeholder">
                 <svg viewBox="0 0 24 24" width="32" height="32" fill="none" stroke="currentColor" strokeWidth="1.5">
