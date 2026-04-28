@@ -1385,6 +1385,7 @@ body {
   font-family: var(--font-mono), 'JetBrains Mono', monospace;
   text-transform: uppercase;
   letter-spacing: 0.05em;
+  flex: 1;
 }
 
 .inline-progress-title::before {
@@ -1418,6 +1419,31 @@ body {
   font-family: var(--font-mono), 'JetBrains Mono', monospace;
   text-transform: uppercase;
   letter-spacing: 0.05em;
+}
+
+.inline-progress-cancelled {
+  font-size: 0.72rem;
+  color: var(--amber);
+  font-family: var(--font-mono), 'JetBrains Mono', monospace;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.inline-cancel-btn {
+  padding: 0.15rem 0.5rem;
+  background: transparent;
+  color: var(--text-muted);
+  border: 1px solid var(--border-light);
+  font-size: 0.68rem;
+  cursor: pointer;
+  font-family: var(--font-mono), 'JetBrains Mono', monospace;
+  transition: all 0.2s;
+}
+
+.inline-cancel-btn:hover {
+  color: var(--red);
+  border-color: var(--red);
+  background: var(--red-dim);
 }
 
 .inline-log {

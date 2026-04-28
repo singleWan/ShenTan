@@ -46,6 +46,20 @@ export async function collectCommand(
 
   const db = await initDatabase(dbPath);
 
+  const abortController = new AbortController();
+  let sigintCount = 0;
+  const onSigint = () => {
+    sigintCount++;
+    if (sigintCount === 1) {
+      console.log('\n⚠️  正在取消任务... (再次按 Ctrl+C 强制退出)');
+      abortController.abort();
+    } else {
+      console.log('\n强制退出');
+      process.exit(1);
+    }
+  };
+  process.on('SIGINT', onSigint);
+
   try {
     // 创建任务记录
     const taskId = crypto.randomUUID();
@@ -72,17 +86,28 @@ export async function collectCommand(
       onProgress: (p) => {
         queries.updateCollectionTask(db, taskId, { progress: p }).catch(() => {});
       },
+      signal: abortController.signal,
     }, (msg) => {
       logWriter.write(msg);
     });
 
     // 更新任务状态
+    const taskStatus = abortController.signal.aborted ? 'cancelled' : (result.success ? 'completed' : 'failed');
     await queries.updateCollectionTask(db, taskId, {
       characterId: result.characterId,
-      status: result.success ? 'completed' : 'failed',
+      status: taskStatus,
       completedAt: new Date().toISOString(),
       result: JSON.stringify(result),
+      ...(abortController.signal.aborted ? { error: '用户取消' } : {}),
     });
+
+    if (abortController.signal.aborted) {
+      logWriter.write('任务已取消');
+      console.log('\n🚫 任务已取消');
+      console.log(`  已收集事件: ${result.totalEvents}`);
+      console.log(`  已收集反应: ${result.totalReactions}`);
+      return;
+    }
 
     logWriter.write(`收集完成: 事件 ${result.totalEvents}, 反应 ${result.totalReactions}`);
 
@@ -97,6 +122,7 @@ export async function collectCommand(
       console.log(`  ${stage.stage}: ${(stage.duration / 1000).toFixed(1)}s ${stage.success ? '✓' : '✗'}`);
     }
   } finally {
+    process.off('SIGINT', onSigint);
     closeDb();
   }
 }

@@ -147,12 +147,20 @@ export function getTask(taskId: string): Task | undefined {
 
 export function cancelTask(taskId: string): boolean {
   const proc = processes.get(taskId);
+  const task = tasks.get(taskId);
+  if (!proc && !task) return false;
+
   if (proc) {
     proc.send({ type: 'cancel' });
     setTimeout(() => proc.kill('SIGTERM'), 3000);
-    return true;
   }
-  return false;
+
+  if (task && (task.status === 'running' || task.status === 'starting')) {
+    task.status = 'cancelled';
+    notifySubscribers(taskId, { type: 'cancelled' });
+  }
+
+  return true;
 }
 
 export function subscribe(taskId: string, callback: (data: TaskSSEData) => void): () => void {

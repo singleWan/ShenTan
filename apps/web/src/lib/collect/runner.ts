@@ -190,16 +190,25 @@ export function getAllTasks(): Array<{ id: string; characterName: string; status
 
 export function cancelTask(taskId: string): boolean {
   const proc = processes.get(taskId);
+  const task = tasks.get(taskId);
+  if (!proc && !task) return false;
+
   if (proc) {
     proc.send({ type: 'cancel' });
     setTimeout(() => proc.kill('SIGTERM'), 3000);
-    updateTaskInDb(taskId, {
-      status: 'cancelled',
-      completedAt: new Date().toISOString(),
-    }).catch(() => {});
-    return true;
   }
-  return false;
+
+  if (task && (task.status === 'running' || task.status === 'starting')) {
+    task.status = 'cancelled';
+    notifySubscribers(taskId, { type: 'cancelled' });
+  }
+
+  updateTaskInDb(taskId, {
+    status: 'cancelled',
+    completedAt: new Date().toISOString(),
+  }).catch(() => {});
+
+  return true;
 }
 
 export function subscribe(taskId: string, callback: (data: SSEData) => void): () => void {

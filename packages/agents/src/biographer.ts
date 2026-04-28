@@ -19,6 +19,7 @@ export async function runBiographer(
   onLog?: (msg: string) => void,
   aliases?: CharacterAlias[],
   source?: string[],
+  signal?: AbortSignal,
 ): Promise<AgentRunResult> {
   const log = (msg: string) => onLog?.(msg);
   log(`[Biographer] 开始收集 "${characterName}" 的生平事迹...`);
@@ -52,5 +53,6 @@ ${sourceSection}${aliasSection}
     maxOutputTokens,
     agentName: 'Biographer',
     onLog,
+    signal,
   });
 }

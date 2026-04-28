@@ -63,7 +63,14 @@ function send(msg: { type: string; payload?: unknown }) {
   }
 }
 
+const abortController = new AbortController();
+
 process.on('message', async (msg: IPCMessage) => {
+  if (msg.type === 'cancel') {
+    abortController.abort();
+    return;
+  }
+
   if (msg.type === 'start') {
     const { characterName, characterType, source, maxRounds, aliases, dbPath, logDir, taskId } = msg.payload;
 
@@ -96,6 +103,7 @@ process.on('message', async (msg: IPCMessage) => {
         onProgress: (progress) => {
           send({ type: 'progress', payload: progress });
         },
+        signal: abortController.signal,
       }, onLog);
 
       logWriter?.write(`收集完成: 事件 ${result.totalEvents}, 反应 ${result.totalReactions}`);
@@ -108,11 +116,6 @@ process.on('message', async (msg: IPCMessage) => {
       closeDb();
       process.exit(0);
     }
-  }
-
-  if (msg.type === 'cancel') {
-    send({ type: 'error', payload: { message: '任务已取消' } });
-    process.exit(0);
   }
 });
 

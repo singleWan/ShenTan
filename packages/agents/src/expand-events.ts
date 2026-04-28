@@ -28,6 +28,7 @@ export async function runExpandEvents(
   maxOutputTokens: number,
   onLog?: (msg: string) => void,
   aliases?: CharacterAlias[],
+  signal?: AbortSignal,
 ): Promise<AgentRunResult> {
   const log = (msg: string) => onLog?.(msg);
   log(`[ExpandEvents] 开始拓展 "${characterName}" 的事件...`);
@@ -99,5 +100,6 @@ ${aliasSection}
     maxOutputTokens,
     agentName: 'ExpandEvents',
     onLog,
+    signal,
   });
 }

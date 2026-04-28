@@ -23,6 +23,7 @@ export async function runSingleReactionCollector(
   maxOutputTokens: number,
   onLog?: (msg: string) => void,
   aliases?: CharacterAlias[],
+  signal?: AbortSignal,
 ): Promise<AgentRunResult> {
   const log = (msg: string) => onLog?.(msg);
   log(`[SingleReaction] 开始收集事件 "${eventContext.title}" (ID: ${eventContext.id}) 的各方反应...`);
@@ -72,5 +73,6 @@ ${aliasSection}
     maxOutputTokens,
     agentName: 'SingleReactionCollector',
     onLog,
+    signal,
   });
 }

@@ -28,10 +28,11 @@ export interface PerEventOptions {
   onLog?: (msg: string) => void;
   aliases?: CharacterAlias[];
   source?: string[];
+  signal?: AbortSignal;
 }
 
 export async function runReactionCollectorForEvent(opts: PerEventOptions): Promise<AgentRunResult> {
-  const { model, db, characterId, characterName, characterType, event, maxIterations, maxOutputTokens, onLog, aliases, source } = opts;
+  const { model, db, characterId, characterName, characterType, event, maxIterations, maxOutputTokens, onLog, aliases, source, signal } = opts;
   const log = (msg: string) => onLog?.(msg);
   log(`[ReactionCollector] 收集事件反应: "${event.title}" (ID: ${event.id}, 重要度: ${event.importance ?? '?'})`);
 
@@ -80,5 +81,6 @@ ${eventDetail}
     maxOutputTokens,
     agentName: 'ReactionCollector',
     onLog,
+    signal,
   });
 }

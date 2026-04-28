@@ -81,11 +81,16 @@ export async function GET(
         controller.close();
         return;
       }
+      if (task.status === 'cancelled') {
+        controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: 'cancelled' })}\n\n`));
+        controller.close();
+        return;
+      }
 
       const unsubscribe = subscribe(taskId, (data) => {
         try {
           controller.enqueue(encoder.encode(`data: ${JSON.stringify(data)}\n\n`));
-          if (data.type === 'complete' || data.type === 'error') {
+          if (data.type === 'complete' || data.type === 'error' || data.type === 'cancelled') {
             controller.close();
           }
         } catch {

@@ -24,9 +24,10 @@ interface ReactionData {
 
 interface TaskState {
   type: 'expand' | 'reaction';
-  status: 'starting' | 'running' | 'completed' | 'failed';
+  status: 'starting' | 'running' | 'completed' | 'failed' | 'cancelled';
   logs: Array<{ timestamp: string; message: string }>;
   error?: string;
+  taskId?: string;
 }
 
 interface TimelineInteractiveProps {
@@ -86,6 +87,14 @@ export default function TimelineInteractive({
             });
             es.close();
             esMapRef.current.delete(url);
+          } else if (data.type === 'cancelled') {
+            next.set(trackKey, {
+              ...current,
+              status: 'cancelled',
+              logs: current.logs,
+            });
+            es.close();
+            esMapRef.current.delete(url);
           }
           return next;
         });
@@ -137,6 +146,12 @@ export default function TimelineInteractive({
       });
       const data = await res.json();
       if (data.taskId) {
+        setTaskStates(prev => {
+          const next = new Map(prev);
+          const current = next.get(trackKey);
+          if (current) next.set(trackKey, { ...current, taskId: data.taskId });
+          return next;
+        });
         connectSSE(`/api/events/expand?taskId=${data.taskId}`, trackKey);
       }
     } catch {
@@ -171,6 +186,12 @@ export default function TimelineInteractive({
       });
       const data = await res.json();
       if (data.taskId) {
+        setTaskStates(prev => {
+          const next = new Map(prev);
+          const current = next.get(trackKey);
+          if (current) next.set(trackKey, { ...current, taskId: data.taskId });
+          return next;
+        });
         connectSSE(`/api/events/expand?taskId=${data.taskId}`, trackKey);
       }
     } catch {
@@ -210,6 +231,12 @@ export default function TimelineInteractive({
       });
       const data = await res.json();
       if (data.taskId) {
+        setTaskStates(prev => {
+          const next = new Map(prev);
+          const current = next.get(trackKey);
+          if (current) next.set(trackKey, { ...current, taskId: data.taskId });
+          return next;
+        });
         connectSSE(`/api/events/${evt.id}/reactions?taskId=${data.taskId}`, trackKey);
       }
     } catch {
@@ -224,6 +251,25 @@ export default function TimelineInteractive({
   const isTaskRunning = useCallback((key: number) => {
     const state = taskStates.get(key);
     return state?.status === 'starting' || state?.status === 'running';
+  }, [taskStates]);
+
+  const handleCancelTask = useCallback(async (key: number) => {
+    const state = taskStates.get(key);
+    if (!state?.taskId) return;
+
+    let cancelUrl: string;
+    if (state.type === 'expand') {
+      cancelUrl = `/api/events/expand?taskId=${state.taskId}`;
+    } else {
+      const eventId = Math.abs(key);
+      cancelUrl = `/api/events/${eventId}/reactions?taskId=${state.taskId}`;
+    }
+
+    try {
+      await fetch(cancelUrl, { method: 'DELETE' });
+    } catch {
+      // 取消请求失败，忽略
+    }
   }, [taskStates]);
 
   const handleDeleteEvent = useCallback(async (eventId: number) => {
@@ -324,6 +370,7 @@ export default function TimelineInteractive({
                   <div className="inline-progress">
                     <div className="inline-progress-header">
                       <span className="inline-progress-title">正在拓展事件...</span>
+                      <button className="inline-cancel-btn" onClick={() => handleCancelTask(expandTaskKey)}>取消</button>
                     </div>
                     <div className="inline-log">
                       {expandState.logs.slice(-5).map((log, i) => (
@@ -351,12 +398,20 @@ export default function TimelineInteractive({
                     </div>
                   </div>
                 )}
+                {expandState?.status === 'cancelled' && (
+                  <div className="inline-progress">
+                    <div className="inline-progress-header">
+                      <span className="inline-progress-cancelled">拓展已取消</span>
+                    </div>
+                  </div>
+                )}
 
                 {/* 反应收集内联进度 */}
                 {reactionState && (reactionState.status === 'running' || reactionState.status === 'starting') && (
                   <div className="inline-progress">
                     <div className="inline-progress-header">
                       <span className="inline-progress-title">正在收集各方反应...</span>
+                      <button className="inline-cancel-btn" onClick={() => handleCancelTask(reactionTaskKey)}>取消</button>
                     </div>
                     <div className="inline-log">
                       {reactionState.logs.slice(-5).map((log, i) => (
@@ -381,6 +436,13 @@ export default function TimelineInteractive({
                   <div className="inline-progress">
                     <div className="inline-progress-header">
                       <span className="inline-progress-error">收集失败: {reactionState.error}</span>
+                    </div>
+                  </div>
+                )}
+                {reactionState?.status === 'cancelled' && (
+                  <div className="inline-progress">
+                    <div className="inline-progress-header">
+                      <span className="inline-progress-cancelled">反应收集已取消</span>
                     </div>
                   </div>
                 )}

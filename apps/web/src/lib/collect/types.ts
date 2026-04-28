@@ -6,7 +6,7 @@ export interface CollectOptions {
   aliases?: string;
 }
 
-export type TaskStatus = 'starting' | 'running' | 'completed' | 'failed';
+export type TaskStatus = 'starting' | 'running' | 'completed' | 'failed' | 'cancelled';
 
 export interface ProgressData {
   stage: string;
@@ -42,4 +42,5 @@ export type SSEData =
   | { type: 'status'; status: TaskStatus }
   | { type: 'progress'; progress: ProgressData }
   | { type: 'complete'; result: CollectTask['result'] }
-  | { type: 'error'; message: string };
+  | { type: 'error'; message: string }
+  | { type: 'cancelled' };

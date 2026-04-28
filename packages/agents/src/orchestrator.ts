@@ -25,6 +25,7 @@ export interface OrchestratorOptions {
   userAliases?: CharacterAlias[];
   aliasesInput?: string;
   onProgress?: (progress: CollectionTaskProgress) => void;
+  signal?: AbortSignal;
 }
 
 export interface OrchestratorResult {
@@ -61,6 +62,7 @@ export async function runOrchestrator(
     onLog?.(msg);
   };
 
+  const { signal } = options;
   const config = options.config ?? resolveConfig();
 
   // 初始化搜索引擎管理器（传入 SearXNG 配置）
@@ -142,12 +144,16 @@ export async function runOrchestrator(
   }
 
   // 阶段 1: 生平采集
+  if (signal?.aborted) {
+    await queries.updateCharacterStatus(db, character.id, 'failed');
+    return { characterId: character.id, success: false, totalEvents: 0, totalReactions: 0, stages };
+  }
   const bioStart = Date.now();
   log('--- 阶段 1: 生平事迹采集 ---');
   progress({ stage: 'biographer', stageIndex: 0, message: '生平事迹采集' });
   const bioResult = await runBiographer(
     bioCfg.model, db, character.id, options.characterName, options.characterType,
-    bioCfg.maxIterations, bioCfg.maxOutputTokens, log, aliases, options.source,
+    bioCfg.maxIterations, bioCfg.maxOutputTokens, log, aliases, options.source, signal,
   );
   stages.push({
     stage: 'biographer',
@@ -167,6 +173,10 @@ export async function runOrchestrator(
   let round = 0;
 
   while (true) {
+    if (signal?.aborted) {
+      log('任务已取消，停止事件拓展');
+      break;
+    }
     round++;
     const exploreStart = Date.now();
     log(`\n--- 阶段 2.${round}: 事件拓展 (第 ${round} 轮) ---`);
@@ -174,7 +184,7 @@ export async function runOrchestrator(
 
     const exploreResult = await runEventExplorer(
       exploreCfg.model, db, character.id, options.characterName, options.characterType, round,
-      exploreCfg.maxIterations, exploreCfg.maxOutputTokens, log, aliases, options.source,
+      exploreCfg.maxIterations, exploreCfg.maxOutputTokens, log, aliases, options.source, signal,
     );
 
     // 评估本轮质量
@@ -206,13 +216,13 @@ export async function runOrchestrator(
   }
 
   // 阶段 3: 发言/政策/声明专项收集
-  if (!options.skipStatementCollection) {
+  if (!options.skipStatementCollection && !signal?.aborted) {
     const statementStart = Date.now();
     log('\n--- 阶段 3: 发言/政策/声明收集 ---');
     progress({ stage: 'statement-collector', stageIndex: qualityConfig.maxExploreRounds! + 1, message: '发言/政策/声明收集' });
     const statementResult = await runStatementCollector(
       statementCfg.model, db, character.id, options.characterName, options.characterType,
-      statementCfg.maxIterations, statementCfg.maxOutputTokens, log, aliases, options.source,
+      statementCfg.maxIterations, statementCfg.maxOutputTokens, log, aliases, options.source, signal,
     );
     stages.push({
       stage: 'statement-collector',
@@ -223,6 +233,9 @@ export async function runOrchestrator(
   }
 
   // 阶段 4: 逐事件反应收集
+  if (signal?.aborted) {
+    log('任务已取消，跳过反应收集');
+  }
   const reactionStart = Date.now();
   const reactionStageIndex = (options.skipStatementCollection ? 2 : 3) + (qualityConfig.maxExploreRounds ?? 5);
   log('\n--- 阶段 4: 逐事件各方反应收集 ---');
@@ -233,6 +246,11 @@ export async function runOrchestrator(
   let reactionSuccessCount = 0;
   let reactionFailCount = 0;
   for (let i = 0; i < eventsForReaction.length; i++) {
+    if (signal?.aborted) {
+      log(`任务已取消，已完成 ${i}/${eventsForReaction.length} 个事件的反应收集`);
+      reactionFailCount += eventsForReaction.length - i;
+      break;
+    }
     const evt = eventsForReaction[i];
     const evtStart = Date.now();
     log(`\n[ReactionCollector] 事件 ${i + 1}/${eventsForReaction.length}: "${evt.title}" (ID: ${evt.id})`);
@@ -250,6 +268,7 @@ export async function runOrchestrator(
         onLog: log,
         aliases,
         source: options.source,
+        signal,
       });
 
       const evtReactions = await queries.getReactionsForEvent(db, evt.id);

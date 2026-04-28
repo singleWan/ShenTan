@@ -144,6 +144,11 @@ export default function CollectPage() {
           setState('done');
           es.close();
           break;
+        case 'cancelled':
+          setError('任务已取消');
+          setState('done');
+          es.close();
+          break;
       }
     };
 

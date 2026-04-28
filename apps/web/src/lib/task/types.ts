@@ -1,6 +1,6 @@
 export type TaskType = 'expand-events' | 'collect-reactions';
 
-export type TaskStatus = 'starting' | 'running' | 'completed' | 'failed';
+export type TaskStatus = 'starting' | 'running' | 'completed' | 'failed' | 'cancelled';
 
 export interface TaskOptions {
   characterId: number;
@@ -41,4 +41,5 @@ export type TaskSSEData =
   | { type: 'log'; message: string; timestamp: string }
   | { type: 'status'; status: TaskStatus }
   | { type: 'complete'; result: Task['result'] }
-  | { type: 'error'; message: string };
+  | { type: 'error'; message: string }
+  | { type: 'cancelled' };

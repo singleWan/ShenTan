@@ -29,11 +29,18 @@ export interface RunAgentParams {
   maxOutputTokens: number;
   agentName: string;
   onLog?: (msg: string) => void;
+  signal?: AbortSignal;
 }
 
 export async function runAgentLoop(params: RunAgentParams): Promise<AgentRunResult> {
-  const { model, db, systemPrompt, userPrompt, maxIterations, maxOutputTokens, agentName, onLog } = params;
+  const { model, db, systemPrompt, userPrompt, maxIterations, maxOutputTokens, agentName, onLog, signal } = params;
   const tools = createTools(db);
+
+  // 检查是否已取消
+  if (signal?.aborted) {
+    onLog?.(`[${agentName}] 任务已取消`);
+    return { success: false, message: '任务已取消' };
+  }
 
   try {
     const result = await generateText({
@@ -44,6 +51,7 @@ export async function runAgentLoop(params: RunAgentParams): Promise<AgentRunResu
       maxOutputTokens,
       maxRetries: 0,
       stopWhen: stepCountIs(maxIterations),
+      abortSignal: signal,
     });
 
     const text = result.text || '(无文本输出)';
@@ -58,6 +66,10 @@ export async function runAgentLoop(params: RunAgentParams): Promise<AgentRunResu
       },
     };
   } catch (error) {
+    if (signal?.aborted) {
+      onLog?.(`[${agentName}] 任务已取消`);
+      return { success: false, message: '任务已取消' };
+    }
     const msg = extractErrorMessage(error);
     onLog?.(`[${agentName}] 错误: ${msg}`);
     return { success: false, message: msg };

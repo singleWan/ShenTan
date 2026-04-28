@@ -47,6 +47,8 @@ function send(msg: { type: string; payload?: unknown }) {
   }
 }
 
+const abortController = new AbortController();
+
 function parseAliases(aliasesStr?: string) {
   if (!aliasesStr) return undefined;
   try {
@@ -59,8 +61,8 @@ function parseAliases(aliasesStr?: string) {
 
 process.on('message', async (msg: IPCMessage) => {
   if (msg.type === 'cancel') {
-    send({ type: 'error', payload: { message: '任务已取消' } });
-    process.exit(0);
+    abortController.abort();
+    return;
   }
 
   const payload = msg.type === 'start-expand' ? msg.payload : msg.payload;
@@ -95,6 +97,7 @@ process.on('message', async (msg: IPCMessage) => {
       const result = await runExpandEvents(
         model, db, characterId, characterName, context,
         agentCfg.maxIterations, agentCfg.maxTokens, onLog, aliases,
+        abortController.signal,
       );
       send({ type: 'complete', payload: { success: result.success, message: result.message } });
     } else {
@@ -106,6 +109,7 @@ process.on('message', async (msg: IPCMessage) => {
       const result = await runSingleReactionCollector(
         model, db, eventContext, characterName,
         agentCfg.maxIterations, agentCfg.maxTokens, onLog, aliases,
+        abortController.signal,
       );
       send({ type: 'complete', payload: { success: result.success, message: result.message } });
     }
