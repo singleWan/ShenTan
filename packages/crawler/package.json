@@ -9,9 +9,11 @@
     "build": "tsc"
   },
   "dependencies": {
+    "@shentan/core": "workspace:*",
     "playwright": "^1.52.0"
   },
   "devDependencies": {
+    "@types/node": "^22.15.0",
     "typescript": "^5.8.3"
   }
 }

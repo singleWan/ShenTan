@@ -1,6 +1,7 @@
 import { createPage, closeBrowser } from './browser.js';
 import { detectPlatform, getScrapableUrl } from './platform.js';
 import { extractByPlatform } from './extractors/index.js';
+import { withRetry } from '@shentan/core';
 
 export interface ScrapedContent {
   title: string;
@@ -58,44 +59,45 @@ async function extractContent(page: import('playwright').Page): Promise<ScrapedC
   });
 }
 
+const SCRAPE_RETRY_CONFIG = { maxRetries: 2, baseDelay: 2000, maxDelay: 15000 };
+
 // 爬取单个页面，集成平台专用提取器
 export async function scrapePage(url: string, timeout = 30000): Promise<ScrapedContent> {
-  const platform = detectPlatform(url);
-  const scrapableUrl = platform ? getScrapableUrl(url) : url;
+  return withRetry(async () => {
+    const platform = detectPlatform(url);
+    const scrapableUrl = platform ? getScrapableUrl(url) : url;
 
-  const { page, context } = await createPage();
-  try {
-    // 社交媒体页面可能需要更长等待时间
-    const waitStrategy = platform ? 'networkidle' : 'domcontentloaded';
-    await page.goto(scrapableUrl, { timeout, waitUntil: waitStrategy });
+    const { page, context } = await createPage();
+    try {
+      const waitStrategy = platform ? 'networkidle' : 'domcontentloaded';
+      await page.goto(scrapableUrl, { timeout, waitUntil: waitStrategy });
 
-    if (platform) {
-      // 社交媒体页面等待动态内容加载
-      await page.waitForTimeout(2000);
-    } else {
-      await page.waitForTimeout(1000);
+      if (platform) {
+        await page.waitForTimeout(2000);
+      } else {
+        await page.waitForTimeout(1000);
+      }
+
+      let result: ScrapedContent | null = null;
+
+      if (platform) {
+        result = await extractByPlatform(page, platform);
+      }
+
+      if (!result) {
+        result = await extractContent(page);
+      }
+
+      result.url = url;
+
+      if (result.content.length > 50000) {
+        result.content = result.content.substring(0, 50000) + '\n... (内容已截断)';
+      }
+      return result;
+    } finally {
+      await context.close();
     }
-
-    // 降级链：平台专用提取 → 通用提取
-    let result: ScrapedContent | null = null;
-
-    if (platform) {
-      result = await extractByPlatform(page, platform);
-    }
-
-    if (!result) {
-      result = await extractContent(page);
-    }
-
-    result.url = url; // 始终返回原始 URL
-
-    if (result.content.length > 50000) {
-      result.content = result.content.substring(0, 50000) + '\n... (内容已截断)';
-    }
-    return result;
-  } finally {
-    await context.close();
-  }
+  }, SCRAPE_RETRY_CONFIG);
 }
 
 // 批量爬取页面

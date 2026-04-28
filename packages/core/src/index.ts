@@ -5,3 +5,4 @@ export * as queries from './db/queries.js';
 export * from './types/index.js';
 export { normalizeDate, interpolateDateSortables, isValidHistoricalDateSortable, isValidFictionalDateSortable, chineseNumToArabic, type NormalizedDate } from './utils/date-normalizer.js';
 export { createLogWriter, type LogWriter } from './utils/logger.js';
+export { withRetry, isRetryableError, RequestThrottle, DEFAULT_RETRY_CONFIG, DEFAULT_THROTTLE_CONFIG, type RetryConfig, type ThrottleConfig } from './utils/retry.js';
