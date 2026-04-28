@@ -1,8 +1,10 @@
 'use client';
 
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { categoryLabel, sentimentLabel } from '@/lib/labels';
+import { useEventSource } from '@/hooks/useEventSource';
+import ConfirmDialog from './ConfirmDialog';
 
 interface EventData {
   id: number;
@@ -49,80 +51,66 @@ export default function TimelineInteractive({
   const [taskStates, setTaskStates] = useState<Map<number, TaskState>>(new Map());
   const [confirmState, setConfirmState] = useState<{ type: 'event' | 'reaction'; id: number; name: string } | null>(null);
   const [deleting, setDeleting] = useState(false);
-  const esMapRef = useRef<Map<string, EventSource>>(new Map());
+  const { connect } = useEventSource();
 
   const connectSSE = useCallback((url: string, trackKey: number) => {
-    // 关闭同 key 的旧连接
-    const old = esMapRef.current.get(url);
-    if (old) old.close();
-
-    const es = new EventSource(url);
-    esMapRef.current.set(url, es);
-
-    es.onmessage = (e) => {
-      try {
-        const data = JSON.parse(e.data);
+    connect(url, {
+      onLog: (data) => {
         setTaskStates(prev => {
           const next = new Map(prev);
           const current = next.get(trackKey);
           if (!current) return prev;
-
-          if (data.type === 'log') {
-            next.set(trackKey, {
-              ...current,
-              status: 'running',
-              logs: [...current.logs, { timestamp: data.timestamp, message: data.message }],
-            });
-          } else if (data.type === 'complete') {
-            next.set(trackKey, { ...current, status: 'completed', logs: current.logs });
-            es.close();
-            esMapRef.current.delete(url);
-            setTimeout(() => router.refresh(), 500);
-          } else if (data.type === 'error') {
-            next.set(trackKey, {
-              ...current,
-              status: 'failed',
-              error: data.message,
-              logs: current.logs,
-            });
-            es.close();
-            esMapRef.current.delete(url);
-          } else if (data.type === 'cancelled') {
-            next.set(trackKey, {
-              ...current,
-              status: 'cancelled',
-              logs: current.logs,
-            });
-            es.close();
-            esMapRef.current.delete(url);
+          next.set(trackKey, {
+            ...current,
+            status: 'running',
+            logs: [...current.logs, { timestamp: data.timestamp, message: data.message }],
+          });
+          return next;
+        });
+      },
+      onComplete: () => {
+        setTaskStates(prev => {
+          const next = new Map(prev);
+          const current = next.get(trackKey);
+          if (current) next.set(trackKey, { ...current, status: 'completed', logs: current.logs });
+          return next;
+        });
+        setTimeout(() => router.refresh(), 500);
+      },
+      onError: (data) => {
+        setTaskStates(prev => {
+          const next = new Map(prev);
+          const current = next.get(trackKey);
+          if (current) next.set(trackKey, { ...current, status: 'failed', error: data.message, logs: current.logs });
+          return next;
+        });
+      },
+      onCancelled: () => {
+        setTaskStates(prev => {
+          const next = new Map(prev);
+          const current = next.get(trackKey);
+          if (current) next.set(trackKey, { ...current, status: 'cancelled', logs: current.logs });
+          return next;
+        });
+      },
+      onConnectionError: () => {
+        setTaskStates(prev => {
+          const next = new Map(prev);
+          const current = next.get(trackKey);
+          if (current && (current.status === 'starting' || current.status === 'running')) {
+            next.set(trackKey, { ...current, status: 'failed', error: '连接断开' });
           }
           return next;
         });
-      } catch {
-        // ignore parse errors
-      }
-    };
-
-    es.onerror = () => {
-      es.close();
-      esMapRef.current.delete(url);
-      setTaskStates(prev => {
-        const next = new Map(prev);
-        const current = next.get(trackKey);
-        if (current && (current.status === 'starting' || current.status === 'running')) {
-          next.set(trackKey, { ...current, status: 'failed', error: '连接断开' });
-        }
-        return next;
-      });
-    };
-  }, [router]);
+      },
+    });
+  }, [connect, router]);
 
   const handleExpandRange = useCallback(async (
     afterEvent: EventData,
     beforeEvent: EventData,
     targetIdx: number,
   ) => {
-    // 用 afterEvent.id 作为 key 追踪（代表间隔位置）
     const trackKey = afterEvent.id;
 
     setTaskStates(prev => {
@@ -204,7 +192,7 @@ export default function TimelineInteractive({
   }, [characterId, characterName, characterAliases, connectSSE]);
 
   const handleCollectReactions = useCallback(async (evt: EventData) => {
-    const trackKey = -evt.id; // 负数 key 区分 reaction 任务
+    const trackKey = -evt.id;
 
     setTaskStates(prev => {
       const next = new Map(prev);
@@ -477,41 +465,23 @@ export default function TimelineInteractive({
         );
       })}
 
-      {confirmState && (
-        <div className="confirm-overlay" onClick={() => setConfirmState(null)}>
-          <div className="confirm-dialog" onClick={(e) => e.stopPropagation()}>
-            <h3>确认删除</h3>
-            <p>
-              {confirmState.type === 'event'
-                ? `确定要删除事件「${confirmState.name}」及其所有反应数据吗？此操作不可恢复。`
-                : `确定要删除「${confirmState.name}」的反应吗？此操作不可恢复。`
-              }
-            </p>
-            <div className="confirm-actions">
-              <button
-                className="btn-confirm-cancel"
-                onClick={() => setConfirmState(null)}
-                disabled={deleting}
-              >
-                取消
-              </button>
-              <button
-                className="btn-confirm-delete"
-                onClick={() => {
-                  if (confirmState.type === 'event') {
-                    handleDeleteEvent(confirmState.id);
-                  } else {
-                    handleDeleteReaction(confirmState.id);
-                  }
-                }}
-                disabled={deleting}
-              >
-                {deleting ? '删除中...' : '确认删除'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <ConfirmDialog
+        open={confirmState !== null}
+        message={
+          confirmState?.type === 'event'
+            ? `确定要删除事件「${confirmState.name}」及其所有反应数据吗？此操作不可恢复。`
+            : `确定要删除「${confirmState?.name}」的反应吗？此操作不可恢复。`
+        }
+        loading={deleting}
+        onConfirm={() => {
+          if (confirmState?.type === 'event') {
+            handleDeleteEvent(confirmState.id);
+          } else if (confirmState?.type === 'reaction') {
+            handleDeleteReaction(confirmState.id);
+          }
+        }}
+        onCancel={() => setConfirmState(null)}
+      />
     </div>
   );
 }

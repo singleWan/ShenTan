@@ -1,5 +1,5 @@
 import { getDb, characters, events, reactions } from './db';
-import { eq, desc, sql } from 'drizzle-orm';
+import { eq, desc, sql, inArray } from 'drizzle-orm';
 
 export async function listCharacters() {
   const db = getDb();
@@ -29,6 +29,21 @@ export async function getEventReactions(eventId: number) {
   return db.select().from(reactions)
     .where(eq(reactions.eventId, eventId))
     .all();
+}
+
+export async function getReactionsForEvents(eventIds: number[]) {
+  if (eventIds.length === 0) return new Map<number, Awaited<ReturnType<typeof getEventReactions>>>();
+  const db = getDb();
+  const rows = db.select().from(reactions)
+    .where(inArray(reactions.eventId, eventIds))
+    .all();
+  const map = new Map<number, Awaited<ReturnType<typeof getEventReactions>>>();
+  for (const r of rows) {
+    const list = map.get(r.eventId) ?? [];
+    list.push(r);
+    map.set(r.eventId, list);
+  }
+  return map;
 }
 
 export async function deleteReaction(id: number) {

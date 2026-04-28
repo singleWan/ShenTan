@@ -1,4 +1,4 @@
-import { getCharacter, getCharacterEvents, getEventReactions } from '@/lib/data';
+import { getCharacter, getCharacterEvents, getReactionsForEvents } from '@/lib/data';
 import Link from 'next/link';
 import TimelineInteractive from '@/components/TimelineInteractive';
 import DeleteCharacterButton from '@/components/DeleteCharacterButton';
@@ -13,10 +13,10 @@ export default async function CharacterPage({ params }: { params: Promise<{ id: 
   const character = await getCharacter(characterId);
   const eventList = await getCharacterEvents(characterId);
 
-  const reactionsMap: Record<number, Awaited<ReturnType<typeof getEventReactions>>> = {};
-  for (const evt of eventList) {
-    const r = await getEventReactions(evt.id);
-    if (r.length > 0) reactionsMap[evt.id] = r;
+  const reactionsMapRaw = await getReactionsForEvents(eventList.map(e => e.id));
+  const reactionsMap: Record<number, { id: number; reactor: string; reactorType: string; reactionText: string | null; sentiment: string | null; eventId: number }[]> = {};
+  for (const [eventId, r] of reactionsMapRaw) {
+    if (r.length > 0) reactionsMap[eventId] = r;
   }
 
   if (!character) {

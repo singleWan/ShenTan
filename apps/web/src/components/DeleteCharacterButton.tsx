@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import ConfirmDialog from './ConfirmDialog';
 
 interface DeleteCharacterButtonProps {
   characterId: number;
@@ -36,32 +37,13 @@ export default function DeleteCharacterButton({ characterId, characterName }: De
         删除角色
       </button>
 
-      {showConfirm && (
-        <div className="confirm-overlay" onClick={() => setShowConfirm(false)}>
-          <div className="confirm-dialog" onClick={(e) => e.stopPropagation()}>
-            <h3>确认删除</h3>
-            <p>
-              确定要删除角色「{characterName}」及其所有事件和反应数据吗？此操作不可恢复。
-            </p>
-            <div className="confirm-actions">
-              <button
-                className="btn-confirm-cancel"
-                onClick={() => setShowConfirm(false)}
-                disabled={deleting}
-              >
-                取消
-              </button>
-              <button
-                className="btn-confirm-delete"
-                onClick={confirmDelete}
-                disabled={deleting}
-              >
-                {deleting ? '删除中...' : '确认删除'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <ConfirmDialog
+        open={showConfirm}
+        message={<>确定要删除角色「{characterName}」及其所有事件和反应数据吗？此操作不可恢复。</>}
+        loading={deleting}
+        onConfirm={confirmDelete}
+        onCancel={() => setShowConfirm(false)}
+      />
     </>
   );
 }

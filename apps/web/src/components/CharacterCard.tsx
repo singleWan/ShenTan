@@ -4,6 +4,7 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { statusLabel, formatSourceDisplay } from '@/lib/labels';
+import ConfirmDialog from './ConfirmDialog';
 
 interface CharacterCardProps {
   id: number;
@@ -80,32 +81,13 @@ export default function CharacterCard({ id, name, type, source, status, imageUrl
         </div>
       </Link>
 
-      {showConfirm && (
-        <div className="confirm-overlay" onClick={() => setShowConfirm(false)}>
-          <div className="confirm-dialog" onClick={(e) => e.stopPropagation()}>
-            <h3>确认删除</h3>
-            <p>
-              确定要删除角色「{name}」及其所有事件和反应数据吗？此操作不可恢复。
-            </p>
-            <div className="confirm-actions">
-              <button
-                className="btn-confirm-cancel"
-                onClick={() => setShowConfirm(false)}
-                disabled={deleting}
-              >
-                取消
-              </button>
-              <button
-                className="btn-confirm-delete"
-                onClick={confirmDelete}
-                disabled={deleting}
-              >
-                {deleting ? '删除中...' : '确认删除'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <ConfirmDialog
+        open={showConfirm}
+        message={<>确定要删除角色「{name}」及其所有事件和反应数据吗？此操作不可恢复。</>}
+        loading={deleting}
+        onConfirm={confirmDelete}
+        onCancel={() => setShowConfirm(false)}
+      />
     </>
   );
 }
