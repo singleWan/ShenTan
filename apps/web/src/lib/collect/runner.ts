@@ -49,43 +49,8 @@ function getRunningCount(): number {
   return count;
 }
 
-export function startCollection(options: CollectOptions): { taskId: string; error?: string } {
-  const maxConcurrent = getMaxConcurrent();
-  if (getRunningCount() >= maxConcurrent) {
-    return { taskId: '', error: `并发任务已达上限 (${maxConcurrent})，请等待现有任务完成` };
-  }
-
-  const taskId = crypto.randomUUID();
-  const task: CollectTask = {
-    id: taskId,
-    characterName: options.characterName,
-    status: 'starting',
-    startedAt: new Date().toISOString(),
-    logs: [],
-    subscribers: new Set(),
-  };
-  tasks.set(taskId, task);
-
-  const scriptPath = resolve(MONOREPO_ROOT, 'scripts/agent-runner.ts');
-  const proc = fork(scriptPath, [], {
-    execArgv: ['--import', 'tsx'],
-    env: { ...process.env },
-    cwd: MONOREPO_ROOT,
-    stdio: ['pipe', 'pipe', 'pipe', 'ipc'],
-  });
-  processes.set(taskId, proc);
-
-  // 持久化到数据库
-  createTaskInDb({
-    id: taskId,
-    characterName: options.characterName,
-    characterType: options.characterType,
-    source: options.source,
-    maxRounds: options.maxRounds,
-    aliases: options.aliases,
-    pid: proc.pid ?? undefined,
-  }).catch(() => {});
-
+// 共享的 IPC 消息处理
+function setupIpcHandlers(taskId: string, task: CollectTask, proc: ChildProcess) {
   proc.on('message', (msg: { type: string; payload?: unknown }) => {
     switch (msg.type) {
       case 'log': {
@@ -154,10 +119,50 @@ export function startCollection(options: CollectOptions): { taskId: string; erro
     }
     processes.delete(taskId);
   });
+}
 
-  proc.on('exit', () => {});
+function forkAgentRunner(taskId: string, task: CollectTask): ChildProcess {
+  const scriptPath = resolve(MONOREPO_ROOT, 'scripts/agent-runner.ts');
+  const proc = fork(scriptPath, [], {
+    execArgv: ['--import', 'tsx'],
+    env: { ...process.env },
+    cwd: MONOREPO_ROOT,
+    stdio: ['pipe', 'pipe', 'pipe', 'ipc'],
+  });
+  processes.set(taskId, proc);
+  setupIpcHandlers(taskId, task, proc);
+  return proc;
+}
 
-  // 发送启动指令
+export function startCollection(options: CollectOptions): { taskId: string; error?: string } {
+  const maxConcurrent = getMaxConcurrent();
+  if (getRunningCount() >= maxConcurrent) {
+    return { taskId: '', error: `并发任务已达上限 (${maxConcurrent})，请等待现有任务完成` };
+  }
+
+  const taskId = crypto.randomUUID();
+  const task: CollectTask = {
+    id: taskId,
+    characterName: options.characterName,
+    status: 'starting',
+    startedAt: new Date().toISOString(),
+    logs: [],
+    subscribers: new Set(),
+  };
+  tasks.set(taskId, task);
+
+  const proc = forkAgentRunner(taskId, task);
+
+  createTaskInDb({
+    id: taskId,
+    characterName: options.characterName,
+    characterType: options.characterType,
+    source: options.source,
+    maxRounds: options.maxRounds,
+    aliases: options.aliases,
+    pid: proc.pid ?? undefined,
+  }).catch(() => {});
+
   proc.send({
     type: 'start',
     payload: {
@@ -166,6 +171,61 @@ export function startCollection(options: CollectOptions): { taskId: string; erro
       source: options.source,
       maxRounds: options.maxRounds,
       aliases: options.aliases,
+      dbPath: getDbPath(),
+      logDir: getLogDir(),
+      taskId,
+    },
+  });
+
+  return { taskId };
+}
+
+export function continueCollection(input: {
+  characterId: number;
+  characterName: string;
+  characterType: string;
+  source?: string[];
+  maxRounds?: number;
+  aliases?: string;
+}): { taskId: string; error?: string } {
+  const maxConcurrent = getMaxConcurrent();
+  if (getRunningCount() >= maxConcurrent) {
+    return { taskId: '', error: `并发任务已达上限 (${maxConcurrent})，请等待现有任务完成` };
+  }
+
+  const taskId = crypto.randomUUID();
+  const task: CollectTask = {
+    id: taskId,
+    characterName: input.characterName,
+    status: 'starting',
+    startedAt: new Date().toISOString(),
+    logs: [],
+    subscribers: new Set(),
+  };
+  tasks.set(taskId, task);
+
+  const proc = forkAgentRunner(taskId, task);
+
+  createTaskInDb({
+    id: taskId,
+    characterName: input.characterName,
+    characterType: input.characterType,
+    source: input.source,
+    maxRounds: input.maxRounds,
+    aliases: input.aliases,
+    characterId: input.characterId,
+    pid: proc.pid ?? undefined,
+  }).catch(() => {});
+
+  proc.send({
+    type: 'start',
+    payload: {
+      characterName: input.characterName,
+      characterType: input.characterType,
+      source: input.source,
+      maxRounds: input.maxRounds,
+      aliases: input.aliases,
+      existingCharacterId: input.characterId,
       dbPath: getDbPath(),
       logDir: getLogDir(),
       taskId,

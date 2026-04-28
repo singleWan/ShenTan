@@ -26,6 +26,8 @@ export interface OrchestratorOptions {
   aliasesInput?: string;
   onProgress?: (progress: CollectionTaskProgress) => void;
   signal?: AbortSignal;
+  /** 继续已有角色的收集，跳过已完成的阶段 */
+  existingCharacterId?: number;
 }
 
 export interface OrchestratorResult {
@@ -91,21 +93,30 @@ export async function runOrchestrator(
   const reactionCfg = createAgentModel(config, 'reaction-collector', log);
 
   const stages: OrchestratorResult['stages'] = [];
+  const isContinuation = !!options.existingCharacterId;
 
-  // 创建角色记录
-  const character = await queries.createCharacter(db, {
-    name: options.characterName,
-    type: options.characterType,
-    source: options.source,
-  });
+  // 角色记录：继续已有角色 or 创建新角色
+  let characterId: number;
+  if (options.existingCharacterId) {
+    characterId = options.existingCharacterId;
+    await queries.updateCharacterStatus(db, characterId, 'collecting');
+  } else {
+    const character = await queries.createCharacter(db, {
+      name: options.characterName,
+      type: options.characterType,
+      source: options.source,
+    });
+    characterId = character.id;
+  }
 
-  await queries.updateCharacterStatus(db, character.id, 'collecting');
+  await queries.updateCharacterStatus(db, characterId, 'collecting');
 
   log(`\n${'='.repeat(60)}`);
-  log(`开始收集: ${options.characterName} (ID: ${character.id})`);
+  log(`${isContinuation ? '继续' : '开始'}收集: ${options.characterName} (ID: ${characterId})`);
   log(`类型: ${options.characterType === 'fictional' ? '虚构角色' : '历史人物'}`);
   log(`AI Provider: ${config.default} / ${config.providers[config.default]?.model}`);
   log(`事件拓展: 最少 ${qualityConfig.minExploreRounds} 轮，最多 ${qualityConfig.maxExploreRounds} 轮（动态收敛）`);
+  if (isContinuation) log(`模式: 继续已有角色收集`);
   log(`${'='.repeat(60)}\n`);
 
   // 预处理: 解析并合并别名
@@ -137,39 +148,44 @@ export async function runOrchestrator(
   }
 
   if (aliases.length > 0) {
-    await queries.updateCharacterAliases(db, character.id, aliases);
+    await queries.updateCharacterAliases(db, characterId, aliases);
     log(`最终使用 ${aliases.length} 个别名: ${aliases.map(a => `${a.name}${a.source === 'user' ? '(用户)' : '(AI)'}`).join('、')}`);
   } else {
     log('无别名，将使用原始名称搜索');
   }
 
-  // 阶段 1: 生平采集
-  if (signal?.aborted) {
-    await queries.updateCharacterStatus(db, character.id, 'failed');
-    return { characterId: character.id, success: false, totalEvents: 0, totalReactions: 0, stages };
-  }
-  const bioStart = Date.now();
-  log('--- 阶段 1: 生平事迹采集 ---');
-  progress({ stage: 'biographer', stageIndex: 0, message: '生平事迹采集' });
-  const bioResult = await runBiographer(
-    bioCfg.model, db, character.id, options.characterName, options.characterType,
-    bioCfg.maxIterations, bioCfg.maxOutputTokens, log, aliases, options.source, signal,
-  );
-  stages.push({
-    stage: 'biographer',
-    success: bioResult.success,
-    message: bioResult.message.substring(0, 200),
-    duration: Date.now() - bioStart,
-  });
+  // 阶段 1: 生平采集（继续模式跳过）
+  if (isContinuation) {
+    log('--- 阶段 1: 生平事迹采集 [跳过] (继续模式) ---');
+    stages.push({ stage: 'biographer', success: true, message: '继续模式，跳过', duration: 0 });
+  } else {
+    if (signal?.aborted) {
+      await queries.updateCharacterStatus(db, characterId, 'failed');
+      return { characterId: characterId, success: false, totalEvents: 0, totalReactions: 0, stages };
+    }
+    const bioStart = Date.now();
+    log('--- 阶段 1: 生平事迹采集 ---');
+    progress({ stage: 'biographer', stageIndex: 0, message: '生平事迹采集' });
+    const bioResult = await runBiographer(
+      bioCfg.model, db, characterId, options.characterName, options.characterType,
+      bioCfg.maxIterations, bioCfg.maxOutputTokens, log, aliases, options.source, signal,
+    );
+    stages.push({
+      stage: 'biographer',
+      success: bioResult.success,
+      message: bioResult.message.substring(0, 200),
+      duration: Date.now() - bioStart,
+    });
 
-  if (!bioResult.success) {
-    await queries.updateCharacterStatus(db, character.id, 'failed');
-    return { characterId: character.id, success: false, totalEvents: 0, totalReactions: 0, stages };
+    if (!bioResult.success) {
+      await queries.updateCharacterStatus(db, characterId, 'failed');
+      return { characterId: characterId, success: false, totalEvents: 0, totalReactions: 0, stages };
+    }
   }
 
   // 阶段 2: 事件拓展（动态质量驱动轮次）
   const roundQualities: RoundQuality[] = [];
-  let prevEventCount = (await queries.getEvents(db, { characterId: character.id })).length;
+  let prevEventCount = (await queries.getEvents(db, { characterId: characterId })).length;
   let round = 0;
 
   while (true) {
@@ -183,12 +199,12 @@ export async function runOrchestrator(
     progress({ stage: 'event-explorer', stageIndex: round, roundIndex: round, maxRounds: qualityConfig.maxExploreRounds, eventsCount: prevEventCount, message: `事件拓展第 ${round} 轮` });
 
     const exploreResult = await runEventExplorer(
-      exploreCfg.model, db, character.id, options.characterName, options.characterType, round,
+      exploreCfg.model, db, characterId, options.characterName, options.characterType, round,
       exploreCfg.maxIterations, exploreCfg.maxOutputTokens, log, aliases, options.source, signal,
     );
 
     // 评估本轮质量
-    const currentEventCount = (await queries.getEvents(db, { characterId: character.id })).length;
+    const currentEventCount = (await queries.getEvents(db, { characterId: characterId })).length;
     const newEvents = Math.max(0, currentEventCount - prevEventCount);
     const quality: RoundQuality = {
       roundNumber: round,
@@ -221,7 +237,7 @@ export async function runOrchestrator(
     log('\n--- 阶段 3: 发言/政策/声明收集 ---');
     progress({ stage: 'statement-collector', stageIndex: qualityConfig.maxExploreRounds! + 1, message: '发言/政策/声明收集' });
     const statementResult = await runStatementCollector(
-      statementCfg.model, db, character.id, options.characterName, options.characterType,
+      statementCfg.model, db, characterId, options.characterName, options.characterType,
       statementCfg.maxIterations, statementCfg.maxOutputTokens, log, aliases, options.source, signal,
     );
     stages.push({
@@ -239,27 +255,42 @@ export async function runOrchestrator(
   const reactionStart = Date.now();
   const reactionStageIndex = (options.skipStatementCollection ? 2 : 3) + (qualityConfig.maxExploreRounds ?? 5);
   log('\n--- 阶段 4: 逐事件各方反应收集 ---');
-  const eventsForReaction = await queries.getEvents(db, { characterId: character.id, minImportance: 3 });
-  log(`共 ${eventsForReaction.length} 个事件 (importance >= 3) 需要收集反应`);
-  progress({ stage: 'reaction-collector', stageIndex: reactionStageIndex, eventsCount: eventsForReaction.length, message: `各方反应收集 (${eventsForReaction.length} 个事件)` });
+  const eventsForReaction = await queries.getEvents(db, { characterId: characterId, minImportance: 3 });
+
+  // 继续模式：过滤掉已有反应的事件
+  let filteredEventsForReaction = eventsForReaction;
+  if (isContinuation) {
+    const eventsWithReactions = new Set<number>();
+    for (const evt of eventsForReaction) {
+      const existing = await queries.getReactionsForEvent(db, evt.id);
+      if (existing.length > 0) eventsWithReactions.add(evt.id);
+    }
+    filteredEventsForReaction = eventsForReaction.filter(e => !eventsWithReactions.has(e.id));
+    if (filteredEventsForReaction.length < eventsForReaction.length) {
+      log(`继续模式: 跳过 ${eventsForReaction.length - filteredEventsForReaction.length} 个已有反应的事件`);
+    }
+  }
+
+  log(`共 ${filteredEventsForReaction.length} 个事件 (importance >= 3) 需要收集反应`);
+  progress({ stage: 'reaction-collector', stageIndex: reactionStageIndex, eventsCount: filteredEventsForReaction.length, message: `各方反应收集 (${filteredEventsForReaction.length} 个事件)` });
 
   let reactionSuccessCount = 0;
   let reactionFailCount = 0;
-  for (let i = 0; i < eventsForReaction.length; i++) {
+  for (let i = 0; i < filteredEventsForReaction.length; i++) {
     if (signal?.aborted) {
-      log(`任务已取消，已完成 ${i}/${eventsForReaction.length} 个事件的反应收集`);
-      reactionFailCount += eventsForReaction.length - i;
+      log(`任务已取消，已完成 ${i}/${filteredEventsForReaction.length} 个事件的反应收集`);
+      reactionFailCount += filteredEventsForReaction.length - i;
       break;
     }
-    const evt = eventsForReaction[i];
+    const evt = filteredEventsForReaction[i];
     const evtStart = Date.now();
-    log(`\n[ReactionCollector] 事件 ${i + 1}/${eventsForReaction.length}: "${evt.title}" (ID: ${evt.id})`);
+    log(`\n[ReactionCollector] 事件 ${i + 1}/${filteredEventsForReaction.length}: "${evt.title}" (ID: ${evt.id})`);
 
     try {
       const evtResult = await runReactionCollectorForEvent({
         model: reactionCfg.model,
         db,
-        characterId: character.id,
+        characterId: characterId,
         characterName: options.characterName,
         characterType: options.characterType,
         event: evt,
@@ -297,7 +328,7 @@ export async function runOrchestrator(
   log(`\n反应收集汇总: ${reactionSuccessCount} 个事件成功, ${reactionFailCount} 个失败, 总耗时 ${Date.now() - reactionStart}ms`);
 
   // 统计结果
-  const allEvents = await queries.getEvents(db, { characterId: character.id });
+  const allEvents = await queries.getEvents(db, { characterId: characterId });
   let totalReactions = 0;
   for (const evt of allEvents) {
     const r = await queries.getReactionsForEvent(db, evt.id);
@@ -305,7 +336,7 @@ export async function runOrchestrator(
   }
 
   const success = allEvents.length >= 5;
-  await queries.updateCharacterStatus(db, character.id, success ? 'completed' : 'failed');
+  await queries.updateCharacterStatus(db, characterId, success ? 'completed' : 'failed');
 
   log(`\n${'='.repeat(60)}`);
   log(`收集完成: ${options.characterName}`);
@@ -316,7 +347,7 @@ export async function runOrchestrator(
   log(`${'='.repeat(60)}\n`);
 
   return {
-    characterId: character.id,
+    characterId: characterId,
     success,
     totalEvents: allEvents.length,
     totalReactions,

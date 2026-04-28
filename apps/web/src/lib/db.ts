@@ -90,6 +90,26 @@ export const collectionTasks = sqliteTable('collection_tasks', {
   index('collection_tasks_character_idx').on(table.characterId),
 ]);
 
+export const backgroundTasks = sqliteTable('background_tasks', {
+  id: text().primaryKey(),
+  type: text().notNull(), // 'expand-events' | 'collect-reactions'
+  status: text().notNull().default('pending'),
+  characterId: integer('character_id'),
+  characterName: text('character_name').notNull(),
+  config: text(), // JSON: 任务类型特定配置
+  result: text(), // JSON: 任务结果
+  error: text(),
+  progress: text(), // JSON: 进度数据
+  startedAt: text('started_at'),
+  completedAt: text('completed_at'),
+  createdAt: text('created_at').notNull().$defaultFn(() => new Date().toISOString()),
+  updatedAt: text('updated_at').notNull().$defaultFn(() => new Date().toISOString()),
+}, (table) => [
+  index('background_tasks_type_idx').on(table.type),
+  index('background_tasks_status_idx').on(table.status),
+  index('background_tasks_character_idx').on(table.characterId),
+]);
+
 const CREATE_TABLES = `
 CREATE TABLE IF NOT EXISTS characters (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -160,6 +180,25 @@ CREATE TABLE IF NOT EXISTS collection_tasks (
 );
 CREATE INDEX IF NOT EXISTS collection_tasks_status_idx ON collection_tasks(status);
 CREATE INDEX IF NOT EXISTS collection_tasks_character_idx ON collection_tasks(character_id);
+
+CREATE TABLE IF NOT EXISTS background_tasks (
+  id TEXT PRIMARY KEY,
+  type TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'pending',
+  character_id INTEGER REFERENCES characters(id),
+  character_name TEXT NOT NULL,
+  config TEXT,
+  result TEXT,
+  error TEXT,
+  progress TEXT,
+  started_at TEXT,
+  completed_at TEXT,
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS background_tasks_type_idx ON background_tasks(type);
+CREATE INDEX IF NOT EXISTS background_tasks_status_idx ON background_tasks(status);
+CREATE INDEX IF NOT EXISTS background_tasks_character_idx ON background_tasks(character_id);
 `;
 
 const MIGRATE_ADD_ALIASES = `ALTER TABLE characters ADD COLUMN aliases TEXT;`;

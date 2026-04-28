@@ -15,10 +15,12 @@ export async function createTaskInDb(input: {
   aliases?: string;
   logPath?: string;
   pid?: number;
+  characterId?: number;
 }) {
   const db = getDb();
   db.insert(collectionTasks).values({
     id: input.id,
+    characterId: input.characterId ?? undefined,
     characterName: input.characterName,
     characterType: input.characterType,
     source: input.source ? JSON.stringify(input.source) : null,

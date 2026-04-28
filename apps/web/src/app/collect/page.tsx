@@ -253,7 +253,10 @@ export default function CollectPage() {
 
   return (
     <div className="container">
-      <Link href="/" className="back-link">← 返回</Link>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <Link href="/" className="back-link">← 返回</Link>
+        <Link href="/tasks" className="back-link">任务管理 →</Link>
+      </div>
 
       <div className="header">
         <h1 className="glitch">收集角色信息</h1>

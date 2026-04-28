@@ -19,9 +19,14 @@ export default async function HomePage() {
           <h1 className="glitch">神探</h1>
           <p className="header-subtitle">AI驱动的角色生平事迹与事件反应可视化</p>
         </div>
-        <Link href="/collect" className="btn-header">
-          + 收集新角色
-        </Link>
+        <div className="header-btn-group">
+          <Link href="/tasks" className="btn-header">
+            任务管理
+          </Link>
+          <Link href="/collect" className="btn-header">
+            + 收集新角色
+          </Link>
+        </div>
       </div>
 
       {characterList.length === 0 ? (

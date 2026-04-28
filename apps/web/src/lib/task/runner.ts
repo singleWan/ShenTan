@@ -2,6 +2,7 @@ import { fork, type ChildProcess } from 'node:child_process';
 import { resolve, dirname } from 'node:path';
 import { existsSync } from 'node:fs';
 import type { ExpandTaskOptions, ReactionTaskOptions, Task, TaskSSEData } from './types.js';
+import { createBgTask, updateBgTask } from '../task-manager/store';
 
 const tasks = new Map<string, Task>();
 const processes = new Map<string, ChildProcess>();
@@ -53,6 +54,10 @@ function startProcess(taskId: string, task: Task, payload: Record<string, unknow
         const p = msg.payload as { status: Task['status'] };
         task.status = p.status;
         notifySubscribers(taskId, { type: 'status', status: p.status });
+        updateBgTask(taskId, {
+          status: p.status === 'running' ? 'running' : p.status,
+          startedAt: new Date().toISOString(),
+        });
         break;
       }
       case 'complete': {
@@ -60,6 +65,11 @@ function startProcess(taskId: string, task: Task, payload: Record<string, unknow
         task.status = 'completed';
         task.result = p;
         notifySubscribers(taskId, { type: 'complete', result: p });
+        updateBgTask(taskId, {
+          status: 'completed',
+          completedAt: new Date().toISOString(),
+          result: JSON.stringify(p),
+        });
         break;
       }
       case 'error': {
@@ -67,6 +77,11 @@ function startProcess(taskId: string, task: Task, payload: Record<string, unknow
         task.status = 'failed';
         task.error = p.message;
         notifySubscribers(taskId, { type: 'error', message: p.message });
+        updateBgTask(taskId, {
+          status: 'failed',
+          completedAt: new Date().toISOString(),
+          error: p.message,
+        });
         break;
       }
     }
@@ -77,6 +92,11 @@ function startProcess(taskId: string, task: Task, payload: Record<string, unknow
       task.status = 'failed';
       task.error = code === null ? '进程异常终止' : `进程退出码: ${code}`;
       notifySubscribers(taskId, { type: 'error', message: task.error });
+      updateBgTask(taskId, {
+        status: 'failed',
+        completedAt: new Date().toISOString(),
+        error: task.error,
+      });
     }
     processes.delete(taskId);
   });
@@ -95,6 +115,15 @@ export function startExpandTask(options: ExpandTaskOptions): string {
     subscribers: new Set(),
   };
   tasks.set(taskId, task);
+
+  // 持久化到数据库
+  createBgTask({
+    id: taskId,
+    type: 'expand-events',
+    characterId: options.characterId,
+    characterName: options.characterName,
+    config: JSON.stringify({ mode: options.mode }),
+  });
 
   startProcess(taskId, task, {
     type: 'start-expand',
@@ -125,6 +154,15 @@ export function startReactionTask(options: ReactionTaskOptions): string {
     subscribers: new Set(),
   };
   tasks.set(taskId, task);
+
+  // 持久化到数据库
+  createBgTask({
+    id: taskId,
+    type: 'collect-reactions',
+    characterId: options.characterId,
+    characterName: options.characterName,
+    config: JSON.stringify({ eventContext: options.eventContext }),
+  });
 
   startProcess(taskId, task, {
     type: 'start-reaction',
@@ -158,6 +196,10 @@ export function cancelTask(taskId: string): boolean {
   if (task && (task.status === 'running' || task.status === 'starting')) {
     task.status = 'cancelled';
     notifySubscribers(taskId, { type: 'cancelled' });
+    updateBgTask(taskId, {
+      status: 'cancelled',
+      completedAt: new Date().toISOString(),
+    });
   }
 
   return true;

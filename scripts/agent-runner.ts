@@ -51,6 +51,7 @@ interface StartPayload {
   dbPath: string;
   logDir?: string;
   taskId?: string;
+  existingCharacterId?: number;
 }
 
 type IPCMessage =
@@ -72,7 +73,7 @@ process.on('message', async (msg: IPCMessage) => {
   }
 
   if (msg.type === 'start') {
-    const { characterName, characterType, source, maxRounds, aliases, dbPath, logDir, taskId } = msg.payload;
+    const { characterName, characterType, source, maxRounds, aliases, dbPath, logDir, taskId, existingCharacterId } = msg.payload;
 
     // 创建文件日志
     const logId = taskId ?? `${Date.now()}`;
@@ -100,6 +101,7 @@ process.on('message', async (msg: IPCMessage) => {
         source,
         maxExploreRounds: maxRounds ?? 5,
         aliasesInput: aliases,
+        existingCharacterId,
         onProgress: (progress) => {
           send({ type: 'progress', payload: progress });
         },
