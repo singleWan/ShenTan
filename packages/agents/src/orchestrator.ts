@@ -13,6 +13,7 @@ import { createModel } from './provider/factory.js';
 import { createResilientModel } from './utils/resilient-model.js';
 import { getDefaultSearchManager } from '@shentan/crawler';
 import { shouldContinue, formatQualityReport, type RoundQuality } from './quality-assessor.js';
+import { runWithConcurrency } from './utils/concurrency.js';
 
 export interface OrchestratorOptions {
   characterName: string;
@@ -260,14 +261,13 @@ export async function runOrchestrator(
   log('\n--- 阶段 4: 逐事件各方反应收集 ---');
   const eventsForReaction = await queries.getEvents(db, { characterId: characterId, minImportance: 3 });
 
-  // 继续模式：过滤掉已有反应的事件
+  // 继续模式：并行查询已有反应，过滤掉已收集的事件
   let filteredEventsForReaction = eventsForReaction;
   if (isContinuation) {
-    const eventsWithReactions = new Set<number>();
-    for (const evt of eventsForReaction) {
-      const existing = await queries.getReactionsForEvent(db, evt.id);
-      if (existing.length > 0) eventsWithReactions.add(evt.id);
-    }
+    const reactionChecks = await Promise.all(
+      eventsForReaction.map(evt => queries.getReactionsForEvent(db, evt.id).then(r => ({ id: evt.id, count: r.length })))
+    );
+    const eventsWithReactions = new Set(reactionChecks.filter(r => r.count > 0).map(r => r.id));
     filteredEventsForReaction = eventsForReaction.filter(e => !eventsWithReactions.has(e.id));
     if (filteredEventsForReaction.length < eventsForReaction.length) {
       log(`继续模式: 跳过 ${eventsForReaction.length - filteredEventsForReaction.length} 个已有反应的事件`);
@@ -277,23 +277,20 @@ export async function runOrchestrator(
   log(`共 ${filteredEventsForReaction.length} 个事件 (importance >= 3) 需要收集反应`);
   progress({ stage: 'reaction-collector', stageIndex: reactionStageIndex, eventsCount: filteredEventsForReaction.length, message: `各方反应收集 (${filteredEventsForReaction.length} 个事件)` });
 
-  let reactionSuccessCount = 0;
-  let reactionFailCount = 0;
-  for (let i = 0; i < filteredEventsForReaction.length; i++) {
-    if (signal?.aborted) {
-      log(`任务已取消，已完成 ${i}/${filteredEventsForReaction.length} 个事件的反应收集`);
-      reactionFailCount += filteredEventsForReaction.length - i;
-      break;
-    }
-    const evt = filteredEventsForReaction[i];
-    const evtStart = Date.now();
-    log(`\n[ReactionCollector] 事件 ${i + 1}/${filteredEventsForReaction.length}: "${evt.title}" (ID: ${evt.id})`);
+  // 并发反应收集（默认并发数 3，可通过 REACTION_COLLECTOR_CONCURRENCY 环境变量调整）
+  const reactionConcurrency = parseInt(process.env.REACTION_COLLECTOR_CONCURRENCY ?? '3', 10);
+  log(`并发数: ${reactionConcurrency}`);
 
-    try {
+  let completedCount = 0;
+  const reactionResults = await runWithConcurrency(
+    filteredEventsForReaction.map((evt, i) => async () => {
+      const evtStart = Date.now();
+      log(`\n[ReactionCollector] 事件 ${i + 1}/${filteredEventsForReaction.length}: "${evt.title}" (ID: ${evt.id})`);
+
       const evtResult = await runReactionCollectorForEvent({
         model: reactionCfg.model,
         db,
-        characterId: characterId,
+        characterId,
         characterName: options.characterName,
         characterType: options.characterType,
         event: evt,
@@ -307,7 +304,8 @@ export async function runOrchestrator(
       });
 
       const evtReactions = await queries.getReactionsForEvent(db, evt.id);
-      log(`[ReactionCollector] 事件 "${evt.title}" 完成: ${evtReactions.length} 条反应 (${Date.now() - evtStart}ms)`);
+      completedCount++;
+      log(`[ReactionCollector] 事件 "${evt.title}" 完成: ${evtReactions.length} 条反应 (${Date.now() - evtStart}ms) [${completedCount}/${filteredEventsForReaction.length}]`);
 
       stages.push({
         stage: `reaction-collector-event-${evt.id}`,
@@ -315,29 +313,34 @@ export async function runOrchestrator(
         message: evtResult.message.substring(0, 200),
         duration: Date.now() - evtStart,
       });
+
+      return evtResult;
+    }),
+    reactionConcurrency,
+    signal,
+  );
+
+  let reactionSuccessCount = 0;
+  let reactionFailCount = 0;
+  for (const result of reactionResults) {
+    if (result.success && result.value.success) {
       reactionSuccessCount++;
-    } catch (e) {
-      const msg = (e as Error).message;
-      log(`[ReactionCollector] 事件 "${evt.title}" 收集失败: ${msg}`);
-      stages.push({
-        stage: `reaction-collector-event-${evt.id}`,
-        success: false,
-        message: msg.substring(0, 200),
-        duration: Date.now() - evtStart,
-      });
+    } else {
       reactionFailCount++;
+      if (!result.success) {
+        log(`[ReactionCollector] 事件收集失败: ${result.error.message}`);
+      }
     }
   }
 
   log(`\n反应收集汇总: ${reactionSuccessCount} 个事件成功, ${reactionFailCount} 个失败, 总耗时 ${Date.now() - reactionStart}ms`);
 
-  // 统计结果
-  const allEvents = await queries.getEvents(db, { characterId: characterId });
-  let totalReactions = 0;
-  for (const evt of allEvents) {
-    const r = await queries.getReactionsForEvent(db, evt.id);
-    totalReactions += r.length;
-  }
+  // 统计结果（批量查询所有反应，避免 N+1）
+  const allEvents = await queries.getEvents(db, { characterId });
+  const allReactionsChecks = await Promise.all(
+    allEvents.map(evt => queries.getReactionsForEvent(db, evt.id))
+  );
+  const totalReactions = allReactionsChecks.reduce((sum, r) => sum + r.length, 0);
 
   const success = allEvents.length >= 5;
   await queries.updateCharacterStatus(db, characterId, success ? 'completed' : 'failed');
