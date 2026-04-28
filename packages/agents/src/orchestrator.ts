@@ -7,7 +7,7 @@ import { runStatementCollector } from './statement-collector.js';
 import { runReactionCollectorForEvent } from './reaction-collector.js';
 import { resolveAliases, mergeAliases, parseUserAliases } from './alias-resolver.js';
 import { resolveConfig, getProviderConfig, getAgentModelConfig } from './config/loader.js';
-import type { ShentanConfig, QualityConfig } from './config/types.js';
+import type { ShentanConfig, QualityConfig, ProviderOptions } from './config/types.js';
 import { DEFAULT_QUALITY_CONFIG } from './config/types.js';
 import { createModel } from './provider/factory.js';
 import { createResilientModel } from './utils/resilient-model.js';
@@ -43,7 +43,7 @@ export interface OrchestratorResult {
   }>;
 }
 
-function createAgentModel(config: ShentanConfig, agentName: string, onLog?: (msg: string) => void): { model: LanguageModel; maxIterations: number; maxOutputTokens: number } {
+function createAgentModel(config: ShentanConfig, agentName: string, onLog?: (msg: string) => void): { model: LanguageModel; maxIterations: number; maxOutputTokens: number; providerOptions?: ProviderOptions } {
   const { providerName, maxIterations, maxTokens } = getAgentModelConfig(config, agentName);
   const providerCfg = getProviderConfig(config, providerName);
   const baseModel = createModel(providerCfg);
@@ -51,7 +51,7 @@ function createAgentModel(config: ShentanConfig, agentName: string, onLog?: (msg
     retry: config.retry,
     throttle: config.throttle,
   }, onLog);
-  return { model, maxIterations, maxOutputTokens: maxTokens };
+  return { model, maxIterations, maxOutputTokens: maxTokens, providerOptions: providerCfg.providerOptions };
 }
 
 export async function runOrchestrator(
@@ -133,7 +133,7 @@ export async function runOrchestrator(
   // 2. AI 解析别名
   try {
     log('--- 预处理: 解析角色别名 ---');
-    const aiAliases = await resolveAliases(bioCfg.model, options.characterName, options.characterType, options.source);
+    const aiAliases = await resolveAliases(bioCfg.model, options.characterName, options.characterType, options.source, bioCfg.providerOptions);
     if (aiAliases.length > 0) {
       log(`AI 解析到 ${aiAliases.length} 个别名: ${aiAliases.map(a => a.name).join('、')}`);
     } else {
@@ -169,6 +169,7 @@ export async function runOrchestrator(
     const bioResult = await runBiographer(
       bioCfg.model, db, characterId, options.characterName, options.characterType,
       bioCfg.maxIterations, bioCfg.maxOutputTokens, log, aliases, options.source, signal,
+      bioCfg.providerOptions,
     );
     stages.push({
       stage: 'biographer',
@@ -201,6 +202,7 @@ export async function runOrchestrator(
     const exploreResult = await runEventExplorer(
       exploreCfg.model, db, characterId, options.characterName, options.characterType, round,
       exploreCfg.maxIterations, exploreCfg.maxOutputTokens, log, aliases, options.source, signal,
+      exploreCfg.providerOptions,
     );
 
     // 评估本轮质量
@@ -239,6 +241,7 @@ export async function runOrchestrator(
     const statementResult = await runStatementCollector(
       statementCfg.model, db, characterId, options.characterName, options.characterType,
       statementCfg.maxIterations, statementCfg.maxOutputTokens, log, aliases, options.source, signal,
+      statementCfg.providerOptions,
     );
     stages.push({
       stage: 'statement-collector',
@@ -300,6 +303,7 @@ export async function runOrchestrator(
         aliases,
         source: options.source,
         signal,
+        providerOptions: reactionCfg.providerOptions,
       });
 
       const evtReactions = await queries.getReactionsForEvent(db, evt.id);

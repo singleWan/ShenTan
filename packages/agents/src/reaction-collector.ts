@@ -1,4 +1,5 @@
 import type { LanguageModel } from 'ai';
+import type { ProviderOptions } from './config/types.js';
 import type { Database, CharacterAlias } from '@shentan/core';
 import { REACTION_COLLECTOR_SYSTEM_PROMPT } from './prompts/reaction-collector.js';
 import { runAgentLoop, type AgentRunResult } from './agent-runner.js';
@@ -29,10 +30,11 @@ export interface PerEventOptions {
   aliases?: CharacterAlias[];
   source?: string[];
   signal?: AbortSignal;
+  providerOptions?: ProviderOptions;
 }
 
 export async function runReactionCollectorForEvent(opts: PerEventOptions): Promise<AgentRunResult> {
-  const { model, db, characterId, characterName, characterType, event, maxIterations, maxOutputTokens, onLog, aliases, source, signal } = opts;
+  const { model, db, characterId, characterName, characterType, event, maxIterations, maxOutputTokens, onLog, aliases, source, signal, providerOptions } = opts;
   const log = (msg: string) => onLog?.(msg);
   log(`[ReactionCollector] 收集事件反应: "${event.title}" (ID: ${event.id}, 重要度: ${event.importance ?? '?'})`);
 
@@ -78,6 +80,7 @@ ${eventDetail}
     maxIterations,
     maxOutputTokens,
     agentName: 'ReactionCollector',
+    providerOptions,
     onLog,
     signal,
   });

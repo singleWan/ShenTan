@@ -1,8 +1,9 @@
-import { generateObject } from 'ai';
+import { generateObject, generateText } from 'ai';
 import { z } from 'zod';
 import type { LanguageModel } from 'ai';
+import type { ProviderOptions } from './config/types.js';
 import type { CharacterAlias } from '@shentan/core';
-import { withRetry, DEFAULT_RETRY_CONFIG, isRetryableError } from './utils/retry.js';
+import { withRetry, DEFAULT_RETRY_CONFIG } from './utils/retry.js';
 
 const ALIAS_RESOLVER_PROMPT = `你是一个角色名称别名解析专家。你的任务是分析给定的角色名称，生成该角色在不同语言、平台和语境下的所有可能称呼方式。
 
@@ -45,6 +46,7 @@ export async function resolveAliases(
   characterName: string,
   characterType: string,
   source?: string[],
+  providerOptions?: ProviderOptions,
 ): Promise<CharacterAlias[]> {
   const sourceHint = source && source.length > 0
     ? `该角色来源于${source.map(s => `「${s}」`).join('和')}，请重点分析该作品中使用的名称。`
@@ -53,20 +55,64 @@ export async function resolveAliases(
     ? `请分析虚构角色 "${characterName}" 的所有已知别名和称呼方式。包括不同语言版本的译名、作品中的别名、粉丝圈常用的昵称等。${sourceHint}`
     : `请分析 "${characterName}" 的所有已知别名和称呼方式。包括中文译名、中文昵称/绰号、英文名称变体、社交媒体账号、常用头衔等。`;
 
-  const result = await withRetry(
-    () => generateObject({
-      model,
-      schema: aliasSchema,
-      system: ALIAS_RESOLVER_PROMPT,
-      prompt: userPrompt,
-    }),
-    { ...DEFAULT_RETRY_CONFIG, maxRetries: 2 },
-    (attempt, err, delay) => {
-      console.warn(`[alias-resolver] 第 ${attempt} 次重试（${delay}ms 后）: ${err.message}`);
-    },
-  );
+  const options = providerOptions ? { providerOptions } : {};
 
-  return result.object.aliases.map(a => ({ ...a, source: 'ai' as const }));
+  // 尝试 generateObject，失败则降级到 generateText + 手动 JSON 提取
+  try {
+    const result = await withRetry(
+      () => generateObject({
+        model,
+        schema: aliasSchema,
+        system: ALIAS_RESOLVER_PROMPT,
+        prompt: userPrompt,
+        ...options,
+      }),
+      { ...DEFAULT_RETRY_CONFIG, maxRetries: 2 },
+      (attempt, err, delay) => {
+        console.warn(`[alias-resolver] 第 ${attempt} 次重试（${delay}ms 后）: ${err.message}`);
+      },
+    );
+    return result.object.aliases.map(a => ({ ...a, source: 'ai' as const }));
+  } catch (objErr) {
+    console.warn(`[alias-resolver] generateObject 失败，降级到 generateText: ${(objErr as Error).message}`);
+  }
+
+  // 降级：generateText + 手动提取 JSON
+  const textResult = await generateText({
+    model,
+    system: ALIAS_RESOLVER_PROMPT + '\n\n请直接输出 JSON，不要用 markdown 代码块包裹。',
+    prompt: userPrompt,
+    ...options,
+  });
+
+  const extracted = extractJson(textResult.text);
+  if (!extracted) {
+    throw new Error('别名解析降级失败: 无法从模型输出中提取有效 JSON');
+  }
+
+  const parsed = aliasSchema.safeParse(extracted);
+  if (!parsed.success) {
+    throw new Error(`别名解析降级失败: JSON schema 不匹配 - ${parsed.error.message}`);
+  }
+
+  return parsed.data.aliases.map(a => ({ ...a, source: 'ai' as const }));
+}
+
+/** 从文本中提取 JSON 对象 */
+function extractJson(text: string): unknown {
+  // 尝试从 markdown 代码块中提取
+  const codeBlockMatch = text.match(/```(?:json)?\s*\n?([\s\S]*?)\n?\s*```/);
+  if (codeBlockMatch) {
+    try { return JSON.parse(codeBlockMatch[1]); } catch { /* continue */ }
+  }
+  // 尝试直接解析整个文本
+  try { return JSON.parse(text); } catch { /* continue */ }
+  // 尝试找到第一个 { 到最后一个 }
+  const braceMatch = text.match(/\{[\s\S]*\}/);
+  if (braceMatch) {
+    try { return JSON.parse(braceMatch[0]); } catch { /* continue */ }
+  }
+  return null;
 }
 
 /**

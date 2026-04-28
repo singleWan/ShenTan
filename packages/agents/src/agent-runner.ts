@@ -1,5 +1,6 @@
 import { generateText, stepCountIs } from 'ai';
 import type { LanguageModel, ModelMessage } from 'ai';
+import type { ProviderOptions } from './config/types.js';
 import { createTools } from './tools/index.js';
 import type { Database } from '@shentan/core';
 
@@ -28,12 +29,13 @@ export interface RunAgentParams {
   maxIterations: number;
   maxOutputTokens: number;
   agentName: string;
+  providerOptions?: ProviderOptions;
   onLog?: (msg: string) => void;
   signal?: AbortSignal;
 }
 
 export async function runAgentLoop(params: RunAgentParams): Promise<AgentRunResult> {
-  const { model, db, systemPrompt, userPrompt, maxIterations, maxOutputTokens, agentName, onLog, signal } = params;
+  const { model, db, systemPrompt, userPrompt, maxIterations, maxOutputTokens, agentName, providerOptions, onLog, signal } = params;
   const tools = createTools(db);
 
   // 检查是否已取消
@@ -52,6 +54,7 @@ export async function runAgentLoop(params: RunAgentParams): Promise<AgentRunResu
       maxRetries: 0,
       stopWhen: stepCountIs(maxIterations),
       abortSignal: signal,
+      providerOptions,
     });
 
     const text = result.text || '(无文本输出)';

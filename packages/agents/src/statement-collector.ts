@@ -1,4 +1,5 @@
 import type { LanguageModel } from 'ai';
+import type { ProviderOptions } from './config/types.js';
 import type { Database, CharacterAlias } from '@shentan/core';
 import { STATEMENT_COLLECTOR_SYSTEM_PROMPT } from './prompts/statement-collector.js';
 import { runAgentLoop, type AgentRunResult } from './agent-runner.js';
@@ -18,6 +19,7 @@ export async function runStatementCollector(
   aliases?: CharacterAlias[],
   source?: string[],
   signal?: AbortSignal,
+  providerOptions?: ProviderOptions,
 ): Promise<AgentRunResult> {
   const log = (msg: string) => onLog?.(msg);
   log(`[StatementCollector] 开始收集 "${characterName}" 的发言、政策与声明...`);
@@ -49,6 +51,7 @@ ${sourceSection}${aliasSection}
     maxIterations,
     maxOutputTokens,
     agentName: 'StatementCollector',
+    providerOptions,
     onLog,
     signal,
   });

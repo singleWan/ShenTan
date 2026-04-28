@@ -1,4 +1,5 @@
 import type { LanguageModel } from 'ai';
+import type { ProviderOptions } from './config/types.js';
 import type { Database, CharacterAlias } from '@shentan/core';
 import { BIOGRAPHER_SYSTEM_PROMPT } from './prompts/biographer.js';
 import { runAgentLoop, type AgentRunResult } from './agent-runner.js';
@@ -20,6 +21,7 @@ export async function runBiographer(
   aliases?: CharacterAlias[],
   source?: string[],
   signal?: AbortSignal,
+  providerOptions?: ProviderOptions,
 ): Promise<AgentRunResult> {
   const log = (msg: string) => onLog?.(msg);
   log(`[Biographer] 开始收集 "${characterName}" 的生平事迹...`);
@@ -49,6 +51,7 @@ ${sourceSection}${aliasSection}
     maxIterations,
     maxOutputTokens,
     agentName: 'Biographer',
+    providerOptions,
     onLog,
     signal,
   });

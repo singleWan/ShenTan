@@ -1,4 +1,5 @@
 import type { LanguageModel } from 'ai';
+import type { ProviderOptions } from './config/types.js';
 import type { Database, CharacterAlias } from '@shentan/core';
 import { EVENT_EXPLORER_SYSTEM_PROMPT } from './prompts/event-explorer.js';
 import { runAgentLoop, type AgentRunResult } from './agent-runner.js';
@@ -19,6 +20,7 @@ export async function runEventExplorer(
   aliases?: CharacterAlias[],
   source?: string[],
   signal?: AbortSignal,
+  providerOptions?: ProviderOptions,
 ): Promise<AgentRunResult> {
   const log = (msg: string) => onLog?.(msg);
   log(`[EventExplorer] 第 ${round} 轮事件拓展 "${characterName}"...`);
@@ -48,6 +50,7 @@ ${sourceSection}${aliasSection}
     maxIterations,
     maxOutputTokens,
     agentName: 'EventExplorer',
+    providerOptions,
     onLog,
     signal,
   });

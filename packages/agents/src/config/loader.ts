@@ -1,4 +1,4 @@
-import type { ShentanConfig, ProviderConfig, AgentConfig, SearXNGConfig, QualityConfig, RetryConfig, ThrottleConfig } from './types.js';
+import type { ShentanConfig, ProviderConfig, AgentConfig, SearXNGConfig, QualityConfig, RetryConfig, ThrottleConfig, ProviderOptions } from './types.js';
 
 function getEnv(key: string): string | undefined {
   return process.env[key];
@@ -46,12 +46,23 @@ function buildProviders(): Record<string, ProviderConfig> {
 
     if (!type || !model) continue;
 
+    const providerOptionsRaw = getEnv(`${prefix}PROVIDER_OPTIONS`);
+    let providerOptions: ProviderOptions | undefined;
+    if (providerOptionsRaw) {
+      try {
+        providerOptions = JSON.parse(providerOptionsRaw);
+      } catch {
+        console.warn(`[config] 无法解析 ${prefix}PROVIDER_OPTIONS: ${providerOptionsRaw}`);
+      }
+    }
+
     providers[name] = {
       type: type as ProviderConfig['type'],
       model,
       apiKey: getProviderApiKey(name),
       baseURL: getEnv(`${prefix}BASE_URL`),
       maxTokens: getEnvInt(`${prefix}MAX_TOKENS`),
+      providerOptions,
     };
   }
 
