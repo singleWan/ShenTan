@@ -1,5 +1,4 @@
 import Database from 'better-sqlite3';
-import { sqliteTable, text, integer, index } from 'drizzle-orm/sqlite-core';
 import { drizzle } from 'drizzle-orm/better-sqlite3';
 import { resolve, dirname } from 'node:path';
 import { existsSync } from 'node:fs';
@@ -16,101 +15,10 @@ function findMonorepoRoot(startDir: string): string {
 
 const MONOREPO_ROOT = findMonorepoRoot(resolve(process.cwd()));
 
-// Schema 定义（与 core 包保持一致）
-export const characters = sqliteTable('characters', {
-  id: integer().primaryKey({ autoIncrement: true }),
-  name: text().notNull(),
-  type: text().notNull(),
-  source: text(),
-  description: text(),
-  aliases: text(),
-  imageUrl: text('image_url'),
-  status: text().notNull().default('pending'),
-  createdAt: text('created_at').notNull(),
-  updatedAt: text('updated_at').notNull(),
-});
+// 从 @shentan/core/schema 导入统一的 Schema 定义（单一数据源，不加载 libsql 驱动）
+export { characters, events, reactions, collectionTasks, backgroundTasks } from '@shentan/core/schema';
 
-export const events = sqliteTable('events', {
-  id: integer().primaryKey({ autoIncrement: true }),
-  characterId: integer('character_id').notNull(),
-  parentEventId: integer('parent_event_id'),
-  title: text().notNull(),
-  description: text(),
-  dateText: text('date_text'),
-  dateSortable: text('date_sortable'),
-  category: text().notNull().default('other'),
-  content: text(),
-  platform: text(),
-  authorHandle: text('author_handle'),
-  sourceUrl: text('source_url'),
-  sourceTitle: text('source_title'),
-  importance: integer().notNull().default(3),
-  metadata: text(),
-  createdAt: text('created_at').notNull(),
-}, (table) => [
-  index('events_character_idx').on(table.characterId),
-  index('events_date_idx').on(table.dateSortable),
-  index('events_importance_idx').on(table.importance),
-  index('events_category_idx').on(table.category),
-]);
-
-export const reactions = sqliteTable('reactions', {
-  id: integer().primaryKey({ autoIncrement: true }),
-  eventId: integer('event_id').notNull(),
-  reactor: text().notNull(),
-  reactorType: text('reactor_type').notNull(),
-  reactionText: text('reaction_text'),
-  sentiment: text(),
-  sourceUrl: text('source_url'),
-  sourceTitle: text('source_title'),
-  createdAt: text('created_at').notNull(),
-}, (table) => [
-  index('reactions_event_idx').on(table.eventId),
-]);
-
-export const collectionTasks = sqliteTable('collection_tasks', {
-  id: text().primaryKey(),
-  characterId: integer('character_id'),
-  characterName: text('character_name').notNull(),
-  characterType: text('character_type').notNull(),
-  source: text(),
-  status: text().notNull().default('pending'),
-  maxRounds: integer('max_rounds').default(5),
-  aliases: text(),
-  logPath: text('log_path'),
-  pid: integer(),
-  startedAt: text('started_at'),
-  completedAt: text('completed_at'),
-  result: text(),
-  error: text(),
-  progress: text(),
-  createdAt: text('created_at').notNull(),
-  updatedAt: text('updated_at').notNull(),
-}, (table) => [
-  index('collection_tasks_status_idx').on(table.status),
-  index('collection_tasks_character_idx').on(table.characterId),
-]);
-
-export const backgroundTasks = sqliteTable('background_tasks', {
-  id: text().primaryKey(),
-  type: text().notNull(), // 'expand-events' | 'collect-reactions'
-  status: text().notNull().default('pending'),
-  characterId: integer('character_id'),
-  characterName: text('character_name').notNull(),
-  config: text(), // JSON: 任务类型特定配置
-  result: text(), // JSON: 任务结果
-  error: text(),
-  progress: text(), // JSON: 进度数据
-  startedAt: text('started_at'),
-  completedAt: text('completed_at'),
-  createdAt: text('created_at').notNull().$defaultFn(() => new Date().toISOString()),
-  updatedAt: text('updated_at').notNull().$defaultFn(() => new Date().toISOString()),
-}, (table) => [
-  index('background_tasks_type_idx').on(table.type),
-  index('background_tasks_status_idx').on(table.status),
-  index('background_tasks_character_idx').on(table.characterId),
-]);
-
+// 建表 SQL（与 core/src/db/init.ts 保持同步）
 const CREATE_TABLES = `
 CREATE TABLE IF NOT EXISTS characters (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -141,7 +49,8 @@ CREATE TABLE IF NOT EXISTS events (
   source_title TEXT,
   importance INTEGER NOT NULL DEFAULT 3,
   metadata TEXT,
-  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  updated_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 CREATE INDEX IF NOT EXISTS events_character_idx ON events(character_id);
 CREATE INDEX IF NOT EXISTS events_date_idx ON events(date_sortable);
@@ -157,6 +66,8 @@ CREATE TABLE IF NOT EXISTS reactions (
   sentiment TEXT,
   source_url TEXT,
   source_title TEXT,
+  status TEXT NOT NULL DEFAULT 'active',
+  collection_id TEXT,
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 CREATE INDEX IF NOT EXISTS reactions_event_idx ON reactions(event_id);
@@ -203,9 +114,14 @@ CREATE INDEX IF NOT EXISTS background_tasks_status_idx ON background_tasks(statu
 CREATE INDEX IF NOT EXISTS background_tasks_character_idx ON background_tasks(character_id);
 `;
 
-const MIGRATE_ADD_ALIASES = `ALTER TABLE characters ADD COLUMN aliases TEXT;`;
-
-const MIGRATE_ADD_IMAGE_URL = `ALTER TABLE characters ADD COLUMN image_url TEXT;`;
+// 兼容已有数据库的增量迁移（忽略已存在的列）
+const MIGRATIONS = [
+  `ALTER TABLE characters ADD COLUMN aliases TEXT;`,
+  `ALTER TABLE characters ADD COLUMN image_url TEXT;`,
+  `ALTER TABLE events ADD COLUMN updated_at TEXT NOT NULL DEFAULT (datetime('now'));`,
+  `ALTER TABLE reactions ADD COLUMN status TEXT NOT NULL DEFAULT 'active';`,
+  `ALTER TABLE reactions ADD COLUMN collection_id TEXT;`,
+];
 
 let _db: ReturnType<typeof drizzle> | null = null;
 
@@ -216,17 +132,12 @@ export function getDb() {
     const sqlite = new Database(resolvedPath);
     sqlite.pragma('journal_mode = WAL');
     sqlite.exec(CREATE_TABLES);
-    // 兼容已有数据库：添加 aliases 列
-    try {
-      sqlite.exec(MIGRATE_ADD_ALIASES);
-    } catch {
-      // 列已存在，忽略错误
-    }
-    // 兼容已有数据库：添加 image_url 列
-    try {
-      sqlite.exec(MIGRATE_ADD_IMAGE_URL);
-    } catch {
-      // 列已存在，忽略错误
+    for (const sql of MIGRATIONS) {
+      try {
+        sqlite.exec(sql);
+      } catch {
+        // 列已存在，忽略错误
+      }
     }
     _db = drizzle(sqlite);
   }

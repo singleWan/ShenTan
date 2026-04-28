@@ -1,122 +1,54 @@
-import { fork, type ChildProcess } from 'node:child_process';
-import { resolve, dirname } from 'node:path';
-import { existsSync } from 'node:fs';
 import type { ExpandTaskOptions, ReactionTaskOptions, Task, TaskSSEData } from './types.js';
 import { createBgTask, updateBgTask, getActiveBgTasksFromDb, getBgTask } from '../task-manager/store';
+import { ProcessManager } from '../shared/process-manager';
+import { getDbPath } from '../shared/utils';
 
-const tasks = new Map<string, Task>();
-const processes = new Map<string, ChildProcess>();
+const pm = new ProcessManager<Task>({
+  onLog(taskId, _task, data) {
+    pm.notifySubscribers(taskId, { type: 'log', ...data });
+  },
+  onStatus(taskId, _task, status) {
+    pm.notifySubscribers(taskId, { type: 'status', status });
+    updateBgTask(taskId, {
+      status: status === 'running' ? 'running' : status,
+      startedAt: new Date().toISOString(),
+    });
+  },
+  onComplete(taskId, _task, result) {
+    const r = result as Task['result'];
+    pm.notifySubscribers(taskId, { type: 'complete', result: r });
+    updateBgTask(taskId, {
+      status: 'completed',
+      completedAt: new Date().toISOString(),
+      result: JSON.stringify(r),
+    });
+  },
+  onError(taskId, _task, message) {
+    pm.notifySubscribers(taskId, { type: 'error', message });
+    updateBgTask(taskId, {
+      status: 'failed',
+      completedAt: new Date().toISOString(),
+      error: message,
+    });
+  },
+});
 
-function findMonorepoRoot(startDir: string): string {
-  let dir = startDir;
-  while (dir !== '/') {
-    if (existsSync(resolve(dir, 'pnpm-workspace.yaml'))) return dir;
-    dir = dirname(dir);
-  }
-  return startDir;
-}
-
-const MONOREPO_ROOT = findMonorepoRoot(resolve(process.cwd()));
-
-function getDbPath(): string {
-  const raw = process.env.DATABASE_PATH ?? './data/shentan.db';
-  if (raw.startsWith('file:')) return raw;
-  return `file:${resolve(MONOREPO_ROOT, raw)}`;
-}
-
-function notifySubscribers(taskId: string, data: TaskSSEData) {
-  const task = tasks.get(taskId);
-  if (!task) return;
-  task.subscribers.forEach((cb) => {
-    try { cb(data); } catch { /* disconnected */ }
-  });
-}
-
-function startProcess(taskId: string, task: Task, payload: Record<string, unknown>) {
-  const scriptPath = resolve(MONOREPO_ROOT, 'scripts/task-runner.ts');
-  const proc = fork(scriptPath, [], {
-    execArgv: ['--import', 'tsx'],
-    env: { ...process.env },
-    cwd: MONOREPO_ROOT,
-    stdio: ['pipe', 'pipe', 'pipe', 'ipc'],
-  });
-  processes.set(taskId, proc);
-
-  proc.on('message', (msg: { type: string; payload?: unknown }) => {
-    switch (msg.type) {
-      case 'log': {
-        const p = msg.payload as { message: string; timestamp: string };
-        task.logs.push({ timestamp: p.timestamp, message: p.message });
-        notifySubscribers(taskId, { type: 'log', ...p });
-        break;
-      }
-      case 'status': {
-        const p = msg.payload as { status: Task['status'] };
-        task.status = p.status;
-        notifySubscribers(taskId, { type: 'status', status: p.status });
-        updateBgTask(taskId, {
-          status: p.status === 'running' ? 'running' : p.status,
-          startedAt: new Date().toISOString(),
-        });
-        break;
-      }
-      case 'complete': {
-        const p = msg.payload as Task['result'];
-        task.status = 'completed';
-        task.result = p;
-        notifySubscribers(taskId, { type: 'complete', result: p });
-        updateBgTask(taskId, {
-          status: 'completed',
-          completedAt: new Date().toISOString(),
-          result: JSON.stringify(p),
-        });
-        break;
-      }
-      case 'error': {
-        const p = msg.payload as { message: string };
-        task.status = 'failed';
-        task.error = p.message;
-        notifySubscribers(taskId, { type: 'error', message: p.message });
-        updateBgTask(taskId, {
-          status: 'failed',
-          completedAt: new Date().toISOString(),
-          error: p.message,
-        });
-        break;
-      }
-    }
-  });
-
-  proc.on('exit', (code) => {
-    if (task.status === 'running' || task.status === 'starting') {
-      task.status = 'failed';
-      task.error = code === null ? '进程异常终止' : `进程退出码: ${code}`;
-      notifySubscribers(taskId, { type: 'error', message: task.error });
-      updateBgTask(taskId, {
-        status: 'failed',
-        completedAt: new Date().toISOString(),
-        error: task.error,
-      });
-    }
-    processes.delete(taskId);
-  });
-
-  proc.send(payload);
-}
-
-export function startExpandTask(options: ExpandTaskOptions): string {
-  const taskId = crypto.randomUUID();
-  const task: Task = {
+function createTask(taskId: string, type: Task['type'], characterName: string): Task {
+  return {
     id: taskId,
-    type: 'expand-events',
+    type,
     status: 'starting',
     startedAt: new Date().toISOString(),
     logs: [],
     subscribers: new Set(),
   };
-  tasks.set(taskId, task);
+}
 
-  // 持久化到数据库
+export function startExpandTask(options: ExpandTaskOptions): string {
+  const taskId = crypto.randomUUID();
+  const task = createTask(taskId, 'expand-events', options.characterName);
+  pm.tasks.set(taskId, task);
+
   createBgTask({
     id: taskId,
     type: 'expand-events',
@@ -125,7 +57,8 @@ export function startExpandTask(options: ExpandTaskOptions): string {
     config: JSON.stringify({ mode: options.mode }),
   });
 
-  startProcess(taskId, task, {
+  pm.forkProcess(taskId, task, 'scripts/task-runner.ts');
+  pm.sendMessage(taskId, {
     type: 'start-expand',
     payload: {
       type: 'expand',
@@ -145,17 +78,9 @@ export function startExpandTask(options: ExpandTaskOptions): string {
 
 export function startReactionTask(options: ReactionTaskOptions): string {
   const taskId = crypto.randomUUID();
-  const task: Task = {
-    id: taskId,
-    type: 'collect-reactions',
-    status: 'starting',
-    startedAt: new Date().toISOString(),
-    logs: [],
-    subscribers: new Set(),
-  };
-  tasks.set(taskId, task);
+  const task = createTask(taskId, 'collect-reactions', options.characterName);
+  pm.tasks.set(taskId, task);
 
-  // 持久化到数据库
   createBgTask({
     id: taskId,
     type: 'collect-reactions',
@@ -164,7 +89,8 @@ export function startReactionTask(options: ReactionTaskOptions): string {
     config: JSON.stringify({ eventContext: options.eventContext }),
   });
 
-  startProcess(taskId, task, {
+  pm.forkProcess(taskId, task, 'scripts/task-runner.ts');
+  pm.sendMessage(taskId, {
     type: 'start-reaction',
     payload: {
       type: 'reaction',
@@ -180,74 +106,35 @@ export function startReactionTask(options: ReactionTaskOptions): string {
 }
 
 export function getTask(taskId: string): Task | undefined {
-  return tasks.get(taskId);
+  return pm.tasks.get(taskId);
 }
 
 export function cancelTask(taskId: string): boolean {
-  const proc = processes.get(taskId);
-  const task = tasks.get(taskId);
-  if (!proc && !task) return false;
-
-  if (proc) {
-    proc.send({ type: 'cancel' });
-    setTimeout(() => proc.kill('SIGTERM'), 3000);
-  }
-
-  if (task && (task.status === 'running' || task.status === 'starting')) {
-    task.status = 'cancelled';
-    notifySubscribers(taskId, { type: 'cancelled' });
+  const cancelled = pm.cancelTask(taskId);
+  if (cancelled) {
     updateBgTask(taskId, {
       status: 'cancelled',
       completedAt: new Date().toISOString(),
     });
   }
-
-  return true;
+  return cancelled;
 }
 
 export function subscribe(taskId: string, callback: (data: TaskSSEData) => void): () => void {
-  const task = tasks.get(taskId);
-  if (!task) return () => {};
-  task.subscribers.add(callback);
-  return () => task.subscribers.delete(callback);
+  return pm.subscribe(taskId, callback as (data: unknown) => void);
 }
 
-function getRunningBgCount(): number {
-  let count = 0;
-  for (const task of tasks.values()) {
-    if (task.status === 'starting' || task.status === 'running') count++;
-  }
-  return count;
-}
-
-function getMaxConcurrent(): number {
-  return parseInt(process.env.MAX_CONCURRENT_TASKS ?? '3', 10);
-}
-
-// 恢复中断的后台任务
 export function resumeBgTask(taskId: string): { taskId: string; error?: string } {
-  const maxConcurrent = getMaxConcurrent();
-  if (getRunningBgCount() >= maxConcurrent) {
-    return { taskId: '', error: `并发任务已达上限 (${maxConcurrent})，请等待现有任务完成` };
-  }
+  const err = pm.checkConcurrency();
+  if (err) return { taskId: '', error: err };
 
   const dbTask = getBgTask(taskId);
-  if (!dbTask) {
-    return { taskId: '', error: '任务记录不存在' };
-  }
+  if (!dbTask) return { taskId: '', error: '任务记录不存在' };
 
   const config = dbTask.config ? JSON.parse(dbTask.config) : {};
-  const task: Task = {
-    id: taskId,
-    type: dbTask.type as Task['type'],
-    status: 'starting',
-    startedAt: new Date().toISOString(),
-    logs: [],
-    subscribers: new Set(),
-  };
-  tasks.set(taskId, task);
+  const task = createTask(taskId, dbTask.type as Task['type'], dbTask.characterName);
+  pm.tasks.set(taskId, task);
 
-  // 更新 DB：重置状态
   updateBgTask(taskId, {
     status: 'starting',
     startedAt: new Date().toISOString(),
@@ -257,9 +144,10 @@ export function resumeBgTask(taskId: string): { taskId: string; error?: string }
     progress: null,
   });
 
-  // 根据类型发送不同 payload
+  pm.forkProcess(taskId, task, 'scripts/task-runner.ts');
+
   if (dbTask.type === 'expand-events') {
-    startProcess(taskId, task, {
+    pm.sendMessage(taskId, {
       type: 'start-expand',
       payload: {
         type: 'expand',
@@ -274,7 +162,7 @@ export function resumeBgTask(taskId: string): { taskId: string; error?: string }
       },
     });
   } else if (dbTask.type === 'collect-reactions') {
-    startProcess(taskId, task, {
+    pm.sendMessage(taskId, {
       type: 'start-reaction',
       payload: {
         type: 'reaction',
@@ -292,15 +180,12 @@ export function resumeBgTask(taskId: string): { taskId: string; error?: string }
   return { taskId };
 }
 
-// 重启恢复：将 DB 中活跃但不在内存中的后台任务标记为 interrupted（可继续）
 export async function recoverBgTasks() {
   try {
     const active = await getActiveBgTasksFromDb();
-    // 跳过最近 2 分钟内更新的任务（可能是刚恢复或 HMR 导致的误判）
     const RECENT_THRESHOLD = 2 * 60 * 1000;
     for (const task of active) {
-      if (tasks.has(task.id)) continue;
-      // 跳过近期更新的任务，避免 HMR/模块重载误伤
+      if (pm.tasks.has(task.id)) continue;
       if (task.updatedAt && Date.now() - new Date(task.updatedAt).getTime() < RECENT_THRESHOLD) continue;
 
       updateBgTask(task.id, {

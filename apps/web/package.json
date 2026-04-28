@@ -9,6 +9,7 @@
     "start": "next start"
   },
   "dependencies": {
+    "@shentan/core": "workspace:*",
     "better-sqlite3": "^11.9.1",
     "drizzle-orm": "^0.42.0",
     "next": "^15.3.0",
