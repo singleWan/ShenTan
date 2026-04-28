@@ -1444,3 +1444,36 @@ body {
   word-break: break-word;
   color: var(--text-secondary);
 }
+
+/* --- Progress Bar --- */
+.progress-bar-container {
+  margin: 1rem 0;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0.75rem 1rem;
+  overflow: hidden;
+}
+
+.progress-bar {
+  height: 6px;
+  background: linear-gradient(90deg, var(--cyan), var(--green));
+  border-radius: 3px;
+  transition: width 0.5s ease;
+  box-shadow: 0 0 8px var(--cyan-glow);
+}
+
+.progress-info {
+  display: flex;
+  gap: 1rem;
+  margin-top: 0.5rem;
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+}
+
+.form-error {
+  color: var(--red);
+  font-size: 0.85rem;
+  margin-top: 0.5rem;
+  text-align: center;
+}

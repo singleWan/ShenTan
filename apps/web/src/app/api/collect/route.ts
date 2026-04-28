@@ -1,7 +1,18 @@
-import { startCollection, getTask, subscribe, cancelTask } from '@/lib/collect/runner';
+import { startCollection, getTask, subscribe, cancelTask, recoverTasks } from '@/lib/collect/runner';
+
+// 服务器启动时恢复未完成任务
+let recovered = false;
+async function ensureRecovered() {
+  if (!recovered) {
+    recovered = true;
+    await recoverTasks();
+  }
+}
 
 // POST /api/collect — 启动收集任务
 export async function POST(request: Request) {
+  await ensureRecovered();
+
   let body: {
     characterName?: string;
     characterType?: string;
@@ -21,7 +32,7 @@ export async function POST(request: Request) {
   }
 
   const characterType = body.characterType === 'fictional' ? 'fictional' : 'historical';
-  const taskId = startCollection({
+  const { taskId, error } = startCollection({
     characterName,
     characterType,
     source: body.source,
@@ -29,11 +40,17 @@ export async function POST(request: Request) {
     aliases: body.aliases,
   });
 
+  if (error) {
+    return Response.json({ error }, { status: 429 });
+  }
+
   return Response.json({ taskId });
 }
 
 // GET /api/collect?taskId=xxx — SSE 进度流
 export async function GET(request: Request) {
+  await ensureRecovered();
+
   const { searchParams } = new URL(request.url);
   const taskId = searchParams.get('taskId');
   if (!taskId) {
@@ -51,6 +68,10 @@ export async function GET(request: Request) {
       // 回放已有日志
       for (const log of task.logs) {
         controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: 'log', ...log })}\n\n`));
+      }
+      // 回放进度
+      if (task.progress) {
+        controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: 'progress', progress: task.progress })}\n\n`));
       }
       // 如果已完成，直接发送结果
       if (task.status === 'completed' && task.result) {

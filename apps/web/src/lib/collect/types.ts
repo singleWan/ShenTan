@@ -8,6 +8,17 @@ export interface CollectOptions {
 
 export type TaskStatus = 'starting' | 'running' | 'completed' | 'failed';
 
+export interface ProgressData {
+  stage: string;
+  stageIndex: number;
+  totalStages: number;
+  roundIndex?: number;
+  maxRounds?: number;
+  eventsCount?: number;
+  reactionsCount?: number;
+  message?: string;
+}
+
 export interface CollectTask {
   id: string;
   characterName: string;
@@ -22,11 +33,13 @@ export interface CollectTask {
     stages: Array<{ stage: string; success: boolean; duration: number }>;
   };
   error?: string;
+  progress?: ProgressData;
   subscribers: Set<(data: SSEData) => void>;
 }
 
 export type SSEData =
   | { type: 'log'; message: string; timestamp: string }
   | { type: 'status'; status: TaskStatus }
+  | { type: 'progress'; progress: ProgressData }
   | { type: 'complete'; result: CollectTask['result'] }
   | { type: 'error'; message: string };

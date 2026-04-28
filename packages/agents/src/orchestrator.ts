@@ -1,5 +1,5 @@
 import type { LanguageModel } from 'ai';
-import type { Database, CharacterAlias } from '@shentan/core';
+import type { Database, CharacterAlias, CollectionTaskProgress } from '@shentan/core';
 import * as queries from '@shentan/core/queries';
 import { runBiographer } from './biographer.js';
 import { runEventExplorer } from './event-explorer.js';
@@ -24,6 +24,7 @@ export interface OrchestratorOptions {
   config?: ShentanConfig;
   userAliases?: CharacterAlias[];
   aliasesInput?: string;
+  onProgress?: (progress: CollectionTaskProgress) => void;
 }
 
 export interface OrchestratorResult {
@@ -75,6 +76,11 @@ export async function runOrchestrator(
     maxExploreRounds: options.maxExploreRounds
       ?? config.quality?.maxExploreRounds
       ?? DEFAULT_QUALITY_CONFIG.maxExploreRounds,
+  };
+
+  const totalStages = (options.skipStatementCollection ? 3 : 4) + (qualityConfig.maxExploreRounds ?? 5);
+  const progress = (p: Omit<CollectionTaskProgress, 'totalStages'>) => {
+    options.onProgress?.({ ...p, totalStages });
   };
 
   const bioCfg = createAgentModel(config, 'biographer', log);
@@ -138,6 +144,7 @@ export async function runOrchestrator(
   // 阶段 1: 生平采集
   const bioStart = Date.now();
   log('--- 阶段 1: 生平事迹采集 ---');
+  progress({ stage: 'biographer', stageIndex: 0, message: '生平事迹采集' });
   const bioResult = await runBiographer(
     bioCfg.model, db, character.id, options.characterName, options.characterType,
     bioCfg.maxIterations, bioCfg.maxOutputTokens, log, aliases, options.source,
@@ -163,6 +170,7 @@ export async function runOrchestrator(
     round++;
     const exploreStart = Date.now();
     log(`\n--- 阶段 2.${round}: 事件拓展 (第 ${round} 轮) ---`);
+    progress({ stage: 'event-explorer', stageIndex: round, roundIndex: round, maxRounds: qualityConfig.maxExploreRounds, eventsCount: prevEventCount, message: `事件拓展第 ${round} 轮` });
 
     const exploreResult = await runEventExplorer(
       exploreCfg.model, db, character.id, options.characterName, options.characterType, round,
@@ -201,6 +209,7 @@ export async function runOrchestrator(
   if (!options.skipStatementCollection) {
     const statementStart = Date.now();
     log('\n--- 阶段 3: 发言/政策/声明收集 ---');
+    progress({ stage: 'statement-collector', stageIndex: qualityConfig.maxExploreRounds! + 1, message: '发言/政策/声明收集' });
     const statementResult = await runStatementCollector(
       statementCfg.model, db, character.id, options.characterName, options.characterType,
       statementCfg.maxIterations, statementCfg.maxOutputTokens, log, aliases, options.source,
@@ -215,9 +224,11 @@ export async function runOrchestrator(
 
   // 阶段 4: 逐事件反应收集
   const reactionStart = Date.now();
+  const reactionStageIndex = (options.skipStatementCollection ? 2 : 3) + (qualityConfig.maxExploreRounds ?? 5);
   log('\n--- 阶段 4: 逐事件各方反应收集 ---');
   const eventsForReaction = await queries.getEvents(db, { characterId: character.id, minImportance: 3 });
   log(`共 ${eventsForReaction.length} 个事件 (importance >= 3) 需要收集反应`);
+  progress({ stage: 'reaction-collector', stageIndex: reactionStageIndex, eventsCount: eventsForReaction.length, message: `各方反应收集 (${eventsForReaction.length} 个事件)` });
 
   let reactionSuccessCount = 0;
   let reactionFailCount = 0;

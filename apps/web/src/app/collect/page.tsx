@@ -16,6 +16,17 @@ interface TaskResult {
   stages: Array<{ stage: string; success: boolean; duration: number; message?: string }>;
 }
 
+interface ProgressData {
+  stage: string;
+  stageIndex: number;
+  totalStages: number;
+  roundIndex?: number;
+  maxRounds?: number;
+  eventsCount?: number;
+  reactionsCount?: number;
+  message?: string;
+}
+
 type PageState = 'form' | 'collecting' | 'done';
 
 export default function CollectPage() {
@@ -32,6 +43,8 @@ export default function CollectPage() {
   const [error, setError] = useState('');
   const [taskId, setTaskId] = useState('');
   const [elapsed, setElapsed] = useState(0);
+  const [progress, setProgress] = useState<ProgressData | null>(null);
+  const [submitError, setSubmitError] = useState('');
   const logContainerRef = useRef<HTMLDivElement>(null);
   const startTimeRef = useRef<number>(0);
   const timerRef = useRef<ReturnType<typeof setInterval>>(undefined);
@@ -112,10 +125,19 @@ export default function CollectPage() {
         case 'log':
           setLogs((prev) => [...prev, { timestamp: data.timestamp, message: data.message }]);
           break;
+        case 'progress':
+          setProgress(data.progress);
+          break;
         case 'complete':
           setResult(data.result);
           setState('done');
           es.close();
+          // 浏览器通知
+          if (Notification.permission === 'granted') {
+            new Notification('神探 - 收集完成', {
+              body: `${name} 已完成收集，共 ${data.result.totalEvents} 个事件`,
+            });
+          }
           break;
         case 'error':
           setError(data.message);
@@ -139,6 +161,8 @@ export default function CollectPage() {
     setLogs([]);
     setResult(null);
     setError('');
+    setSubmitError('');
+    setProgress(null);
     startTimeRef.current = Date.now();
     setElapsed(0);
 
@@ -174,14 +198,24 @@ export default function CollectPage() {
 
     if (!res.ok) {
       const err = await res.json();
-      setError(err.error || '启动失败');
-      setState('done');
+      if (res.status === 429) {
+        setSubmitError(err.error || '并发任务已达上限');
+      } else {
+        setError(err.error || '启动失败');
+        setState('done');
+      }
       return;
     }
 
     const { taskId: id } = await res.json();
     setTaskId(id);
     setState('collecting');
+
+    // 请求通知权限
+    if ('Notification' in window && Notification.permission === 'default') {
+      Notification.requestPermission();
+    }
+
     handleSSE(id);
   };
 
@@ -198,6 +232,8 @@ export default function CollectPage() {
     setSourceInput('');
     setResult(null);
     setError('');
+    setSubmitError('');
+    setProgress(null);
     setLogs([]);
     setAliasTags([]);
     setAliasInput('');
@@ -322,6 +358,7 @@ export default function CollectPage() {
           <button type="submit" className="btn-primary">
             开始收集
           </button>
+          {submitError && <p className="form-error">{submitError}</p>}
         </form>
       )}
 
@@ -335,16 +372,31 @@ export default function CollectPage() {
             </div>
           </div>
 
+          {progress && (
+            <div className="progress-bar-container">
+              <div className="progress-bar" style={{ width: `${Math.round(((progress.stageIndex + 1) / progress.totalStages) * 100)}%` }}></div>
+              <div className="progress-info">
+                <span>{progress.message || progress.stage}</span>
+                {progress.eventsCount !== undefined && <span>事件: {progress.eventsCount}</span>}
+                {progress.roundIndex !== undefined && <span>轮次: {progress.roundIndex}/{progress.maxRounds}</span>}
+              </div>
+            </div>
+          )}
+
           <div className="progress-stages">
-            <div className={`stage ${logs.some(l => l.message.includes('[Biographer]')) ? 'active' : ''}`}>
+            <div className={`stage ${progress?.stage === 'biographer' || logs.some(l => l.message.includes('[Biographer]')) ? 'active' : ''}`}>
               <span className="stage-dot"></span>
               生平采集
             </div>
-            <div className={`stage ${logs.some(l => l.message.includes('[EventExplorer]')) ? 'active' : ''}`}>
+            <div className={`stage ${progress?.stage === 'event-explorer' || logs.some(l => l.message.includes('[EventExplorer]')) ? 'active' : ''}`}>
               <span className="stage-dot"></span>
               事件拓展
             </div>
-            <div className={`stage ${logs.some(l => l.message.includes('[ReactionCollector]')) ? 'active' : ''}`}>
+            <div className={`stage ${progress?.stage === 'statement-collector' || logs.some(l => l.message.includes('[StatementCollector]')) ? 'active' : ''}`}>
+              <span className="stage-dot"></span>
+              发言收集
+            </div>
+            <div className={`stage ${progress?.stage === 'reaction-collector' || logs.some(l => l.message.includes('[ReactionCollector]')) ? 'active' : ''}`}>
               <span className="stage-dot"></span>
               反应收集
             </div>

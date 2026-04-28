@@ -7,6 +7,38 @@ export type ReactorType = 'person' | 'organization' | 'country' | 'media' | 'gro
 export type Sentiment = 'positive' | 'negative' | 'neutral' | 'mixed';
 export type AgentType = 'biographer' | 'event-explorer' | 'reaction-collector' | 'statement-collector';
 export type TaskStatus = 'pending' | 'running' | 'completed' | 'failed';
+export type CollectionTaskStatus = 'pending' | 'running' | 'completed' | 'failed' | 'cancelled';
+
+export interface CollectionTaskProgress {
+  stage: string;
+  stageIndex: number;
+  totalStages: number;
+  roundIndex?: number;
+  maxRounds?: number;
+  eventsCount?: number;
+  reactionsCount?: number;
+  message?: string;
+}
+
+export interface CollectionTask {
+  id: string;
+  characterId: number | null;
+  characterName: string;
+  characterType: CharacterType;
+  source: string | null;
+  status: CollectionTaskStatus;
+  maxRounds: number | null;
+  aliases: string | null;
+  logPath: string | null;
+  pid: number | null;
+  startedAt: string | null;
+  completedAt: string | null;
+  result: string | null;
+  error: string | null;
+  progress: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
 
 export interface CharacterAlias {
   name: string;

@@ -1,6 +1,6 @@
 import { eq, and, gte, desc, sql } from 'drizzle-orm';
 import type { Database } from './connection.js';
-import { characters, events, reactions, searchTasks } from './schema.js';
+import { characters, events, reactions, searchTasks, collectionTasks } from './schema.js';
 import type {
   CharacterType,
   EventCategory,
@@ -9,6 +9,8 @@ import type {
   AgentType,
   CharacterExport,
   CharacterAlias,
+  CollectionTaskStatus,
+  CollectionTaskProgress,
 } from '../types/index.js';
 import { normalizeDate, interpolateDateSortables } from '../utils/date-normalizer.js';
 
@@ -355,4 +357,77 @@ export async function exportCharacter(db: Database, characterId: number): Promis
       collectedAt: new Date().toISOString(),
     },
   };
+}
+
+// CollectionTask 查询
+export async function createCollectionTask(db: Database, input: {
+  id: string;
+  characterName: string;
+  characterType: CharacterType;
+  source?: string[];
+  maxRounds?: number;
+  aliases?: string;
+  logPath?: string;
+  pid?: number;
+}) {
+  const result = await db.insert(collectionTasks).values({
+    id: input.id,
+    characterName: input.characterName,
+    characterType: input.characterType,
+    source: input.source ? JSON.stringify(input.source) : null,
+    maxRounds: input.maxRounds ?? 5,
+    aliases: input.aliases ?? null,
+    logPath: input.logPath ?? null,
+    pid: input.pid ?? null,
+    status: 'pending',
+  }).returning();
+  return result[0]!;
+}
+
+export async function getCollectionTask(db: Database, id: string) {
+  const result = await db.select().from(collectionTasks).where(eq(collectionTasks.id, id));
+  return result[0] ?? null;
+}
+
+export async function updateCollectionTask(db: Database, id: string, input: {
+  characterId?: number;
+  status?: CollectionTaskStatus;
+  logPath?: string;
+  pid?: number;
+  startedAt?: string;
+  completedAt?: string;
+  result?: string;
+  error?: string;
+  progress?: CollectionTaskProgress;
+}) {
+  const updates: Record<string, unknown> = { updatedAt: new Date().toISOString() };
+  if (input.characterId !== undefined) updates.characterId = input.characterId;
+  if (input.status !== undefined) updates.status = input.status;
+  if (input.logPath !== undefined) updates.logPath = input.logPath;
+  if (input.pid !== undefined) updates.pid = input.pid;
+  if (input.startedAt !== undefined) updates.startedAt = input.startedAt;
+  if (input.completedAt !== undefined) updates.completedAt = input.completedAt;
+  if (input.result !== undefined) updates.result = input.result;
+  if (input.error !== undefined) updates.error = input.error;
+  if (input.progress !== undefined) updates.progress = JSON.stringify(input.progress);
+
+  await db.update(collectionTasks).set(updates).where(eq(collectionTasks.id, id));
+}
+
+export async function listCollectionTasks(db: Database, options?: {
+  status?: CollectionTaskStatus;
+  limit?: number;
+}) {
+  const conditions = [];
+  if (options?.status) conditions.push(eq(collectionTasks.status, options.status));
+  const query = db.select().from(collectionTasks)
+    .where(conditions.length > 0 ? and(...conditions) : undefined)
+    .orderBy(desc(collectionTasks.createdAt));
+  return options?.limit ? query.limit(options.limit) : query;
+}
+
+export async function getRunningCollectionTasks(db: Database) {
+  return db.select().from(collectionTasks)
+    .where(eq(collectionTasks.status, 'running'))
+    .orderBy(desc(collectionTasks.createdAt));
 }

@@ -4,9 +4,10 @@ import { collectCommand } from './commands/collect.js';
 import { exportCommand } from './commands/export.js';
 import { serveCommand } from './commands/serve.js';
 import { deleteCharacterCommand, deleteEventCommand, deleteReactionCommand } from './commands/delete.js';
+import { tasksCommand } from './commands/tasks.js';
 
 const program = new Command()
-  .configureHelp({ helpOption: ['-h, --help', '显示帮助信息'] });
+  .configureHelp({ helpOption: ['-h', '--help', '显示帮助信息'] });
 
 program
   .name('shentan')
@@ -20,6 +21,7 @@ program
   .option('-s, --source <source>', '角色来源，逗号分隔多个（如"哈利波特系列,神奇动物"）')
   .option('-r, --rounds <rounds>', '事件拓展最大轮次（动态收敛，实际可能更少）', '5')
   .option('-a, --aliases <aliases>', '用户自定义别名，逗号分隔（如 "川普,Trump,川建国"）')
+  .option('-d, --daemon', '后台运行模式（不阻塞终端）')
   .option('--db <path>', '数据库文件路径')
   .action(collectCommand);
 
@@ -36,6 +38,14 @@ program
   .description('启动 Web 可视化界面')
   .option('-p, --port <port>', '端口号', '3000')
   .action(serveCommand);
+
+program
+  .command('tasks [subcommand] [taskId]')
+  .description('管理采集任务 (list/show/logs/cancel)')
+  .option('--status <status>', '按状态过滤 (pending/running/completed/failed)')
+  .option('-n, --lines <lines>', '日志显示行数', '50')
+  .option('--db <path>', '数据库文件路径')
+  .action(tasksCommand);
 
 const deleteCmd = program
   .command('delete')

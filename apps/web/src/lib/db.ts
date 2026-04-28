@@ -67,6 +67,29 @@ export const reactions = sqliteTable('reactions', {
   index('reactions_event_idx').on(table.eventId),
 ]);
 
+export const collectionTasks = sqliteTable('collection_tasks', {
+  id: text().primaryKey(),
+  characterId: integer('character_id'),
+  characterName: text('character_name').notNull(),
+  characterType: text('character_type').notNull(),
+  source: text(),
+  status: text().notNull().default('pending'),
+  maxRounds: integer('max_rounds').default(5),
+  aliases: text(),
+  logPath: text('log_path'),
+  pid: integer(),
+  startedAt: text('started_at'),
+  completedAt: text('completed_at'),
+  result: text(),
+  error: text(),
+  progress: text(),
+  createdAt: text('created_at').notNull(),
+  updatedAt: text('updated_at').notNull(),
+}, (table) => [
+  index('collection_tasks_status_idx').on(table.status),
+  index('collection_tasks_character_idx').on(table.characterId),
+]);
+
 const CREATE_TABLES = `
 CREATE TABLE IF NOT EXISTS characters (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -115,6 +138,28 @@ CREATE TABLE IF NOT EXISTS reactions (
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 CREATE INDEX IF NOT EXISTS reactions_event_idx ON reactions(event_id);
+
+CREATE TABLE IF NOT EXISTS collection_tasks (
+  id TEXT PRIMARY KEY,
+  character_id INTEGER REFERENCES characters(id),
+  character_name TEXT NOT NULL,
+  character_type TEXT NOT NULL,
+  source TEXT,
+  status TEXT NOT NULL DEFAULT 'pending',
+  max_rounds INTEGER DEFAULT 5,
+  aliases TEXT,
+  log_path TEXT,
+  pid INTEGER,
+  started_at TEXT,
+  completed_at TEXT,
+  result TEXT,
+  error TEXT,
+  progress TEXT,
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS collection_tasks_status_idx ON collection_tasks(status);
+CREATE INDEX IF NOT EXISTS collection_tasks_character_idx ON collection_tasks(character_id);
 `;
 
 const MIGRATE_ADD_ALIASES = `ALTER TABLE characters ADD COLUMN aliases TEXT;`;

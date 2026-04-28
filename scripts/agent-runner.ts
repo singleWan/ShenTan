@@ -1,16 +1,14 @@
-import { initDatabase, closeDb } from '@shentan/core';
+import { initDatabase, closeDb, createLogWriter } from '@shentan/core';
 import { runOrchestrator, type OrchestratorResult } from '@shentan/agents';
 import { readFileSync, existsSync } from 'node:fs';
-import { resolve } from 'node:path';
+import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 // 确保 .env 环境变量已加载
 function loadEnvFile() {
-  // runner.ts 设置 cwd 为 monorepo 根目录，优先使用 process.cwd()
   const cwd = process.cwd();
   const searchDirs = [cwd];
 
-  // 备用：从脚本位置向上查找
   try {
     const scriptDir = resolve(fileURLToPath(import.meta.url), '..');
     if (scriptDir !== cwd) searchDirs.push(scriptDir);
@@ -51,6 +49,8 @@ interface StartPayload {
   maxRounds?: number;
   aliases?: string;
   dbPath: string;
+  logDir?: string;
+  taskId?: string;
 }
 
 type IPCMessage =
@@ -65,10 +65,22 @@ function send(msg: { type: string; payload?: unknown }) {
 
 process.on('message', async (msg: IPCMessage) => {
   if (msg.type === 'start') {
-    const { characterName, characterType, source, maxRounds, aliases, dbPath } = msg.payload;
+    const { characterName, characterType, source, maxRounds, aliases, dbPath, logDir, taskId } = msg.payload;
+
+    // 创建文件日志
+    const logId = taskId ?? `${Date.now()}`;
+    const logDirectory = logDir ?? resolve(process.cwd(), 'data', 'logs');
+    let logWriter: ReturnType<typeof createLogWriter> | null = null;
+    try {
+      logWriter = createLogWriter(logDirectory, logId);
+      logWriter.write(`开始收集: ${characterName} (${characterType})`);
+    } catch (e) {
+      console.error(`日志文件创建失败: ${(e as Error).message}`);
+    }
 
     const onLog = (logMsg: string) => {
       send({ type: 'log', payload: { message: logMsg, timestamp: new Date().toISOString() } });
+      logWriter?.write(logMsg);
     };
 
     try {
@@ -81,11 +93,17 @@ process.on('message', async (msg: IPCMessage) => {
         source,
         maxExploreRounds: maxRounds ?? 5,
         aliasesInput: aliases,
+        onProgress: (progress) => {
+          send({ type: 'progress', payload: progress });
+        },
       }, onLog);
 
+      logWriter?.write(`收集完成: 事件 ${result.totalEvents}, 反应 ${result.totalReactions}`);
       send({ type: 'complete', payload: result });
     } catch (error) {
-      send({ type: 'error', payload: { message: (error as Error).message } });
+      const errMsg = (error as Error).message;
+      logWriter?.write(`收集失败: ${errMsg}`);
+      send({ type: 'error', payload: { message: errMsg } });
     } finally {
       closeDb();
       process.exit(0);

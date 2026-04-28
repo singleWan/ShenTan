@@ -63,3 +63,26 @@ export const searchTasks = sqliteTable('search_tasks', {
   index('search_tasks_character_idx').on(table.characterId),
   index('search_tasks_status_idx').on(table.status),
 ]);
+
+export const collectionTasks = sqliteTable('collection_tasks', {
+  id: text().primaryKey(),
+  characterId: integer('character_id'),
+  characterName: text('character_name').notNull(),
+  characterType: text('character_type').notNull(),
+  source: text(),
+  status: text().notNull().default('pending'),
+  maxRounds: integer('max_rounds').default(5),
+  aliases: text(),
+  logPath: text('log_path'),
+  pid: integer(),
+  startedAt: text('started_at'),
+  completedAt: text('completed_at'),
+  result: text(),
+  error: text(),
+  progress: text(),
+  createdAt: text('created_at').notNull().$defaultFn(() => new Date().toISOString()),
+  updatedAt: text('updated_at').notNull().$defaultFn(() => new Date().toISOString()),
+}, (table) => [
+  index('collection_tasks_status_idx').on(table.status),
+  index('collection_tasks_character_idx').on(table.characterId),
+]);
