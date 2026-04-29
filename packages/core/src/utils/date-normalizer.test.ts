@@ -1,5 +1,10 @@
 import { describe, it, expect } from 'vitest';
-import { normalizeDate, chineseNumToArabic, isValidHistoricalDateSortable, isValidFictionalDateSortable } from './date-normalizer.js';
+import {
+  normalizeDate,
+  chineseNumToArabic,
+  isValidHistoricalDateSortable,
+  isValidFictionalDateSortable,
+} from './date-normalizer.js';
 
 describe('chineseNumToArabic', () => {
   it('转换单个数字', () => {

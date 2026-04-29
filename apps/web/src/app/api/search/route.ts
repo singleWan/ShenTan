@@ -13,12 +13,16 @@ export async function GET(request: NextRequest) {
   try {
     const [characterResults, eventResults] = await Promise.all([
       type === 'events' ? Promise.resolve([]) : searchCharacters(q),
-      type === 'characters' ? Promise.resolve([]) : searchEvents(q, {
-        category: searchParams.get('category') ?? undefined,
-        dateFrom: searchParams.get('dateFrom') ?? undefined,
-        dateTo: searchParams.get('dateTo') ?? undefined,
-        importance: searchParams.get('importance') ? (Number(searchParams.get('importance')) || undefined) : undefined,
-      }),
+      type === 'characters'
+        ? Promise.resolve([])
+        : searchEvents(q, {
+            category: searchParams.get('category') ?? undefined,
+            dateFrom: searchParams.get('dateFrom') ?? undefined,
+            dateTo: searchParams.get('dateTo') ?? undefined,
+            importance: searchParams.get('importance')
+              ? Number(searchParams.get('importance')) || undefined
+              : undefined,
+          }),
     ]);
 
     return NextResponse.json({

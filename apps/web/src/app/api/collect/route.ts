@@ -12,6 +12,7 @@ export async function POST(request: Request) {
     source?: string[];
     maxRounds?: number;
     aliases?: string;
+    existingCharacterId?: number;
   };
   try {
     body = await request.json();
@@ -31,6 +32,7 @@ export async function POST(request: Request) {
     source: body.source,
     maxRounds: body.maxRounds ?? 5,
     aliases: body.aliases,
+    existingCharacterId: body.existingCharacterId,
   });
 
   if (error) {
@@ -66,12 +68,16 @@ export async function GET(request: Request) {
 
   if (dbTask.status === 'completed' && dbTask.result) {
     try {
-      events.push(`data: ${JSON.stringify({ type: 'complete', result: JSON.parse(dbTask.result) })}\n\n`);
+      events.push(
+        `data: ${JSON.stringify({ type: 'complete', result: JSON.parse(dbTask.result) })}\n\n`,
+      );
     } catch {
       events.push(`data: ${JSON.stringify({ type: 'complete', result: dbTask.result })}\n\n`);
     }
   } else if (dbTask.status === 'failed') {
-    events.push(`data: ${JSON.stringify({ type: 'error', message: dbTask.error || '任务失败' })}\n\n`);
+    events.push(
+      `data: ${JSON.stringify({ type: 'error', message: dbTask.error || '任务失败' })}\n\n`,
+    );
   } else if (dbTask.status === 'cancelled') {
     events.push(`data: ${JSON.stringify({ type: 'cancelled' })}\n\n`);
   } else {
@@ -91,32 +97,47 @@ export async function GET(request: Request) {
     headers: {
       'Content-Type': 'text/event-stream',
       'Cache-Control': 'no-cache',
-      'Connection': 'keep-alive',
+      Connection: 'keep-alive',
     },
   });
 }
 
-function createSseResponse(task: ReturnType<typeof getTask>, taskId: string, request: Request): Response {
+function createSseResponse(
+  task: ReturnType<typeof getTask>,
+  taskId: string,
+  request: Request,
+): Response {
   const encoder = new TextEncoder();
   const stream = new ReadableStream({
     start(controller) {
-      if (!task) { controller.close(); return; }
+      if (!task) {
+        controller.close();
+        return;
+      }
       // 回放已有日志
       for (const log of task.logs) {
         controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: 'log', ...log })}\n\n`));
       }
       // 回放进度
       if (task.progress) {
-        controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: 'progress', progress: task.progress })}\n\n`));
+        controller.enqueue(
+          encoder.encode(
+            `data: ${JSON.stringify({ type: 'progress', progress: task.progress })}\n\n`,
+          ),
+        );
       }
       // 如果已完成，直接发送结果
       if (task.status === 'completed' && task.result) {
-        controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: 'complete', result: task.result })}\n\n`));
+        controller.enqueue(
+          encoder.encode(`data: ${JSON.stringify({ type: 'complete', result: task.result })}\n\n`),
+        );
         controller.close();
         return;
       }
       if (task.status === 'failed' && task.error) {
-        controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: 'error', message: task.error })}\n\n`));
+        controller.enqueue(
+          encoder.encode(`data: ${JSON.stringify({ type: 'error', message: task.error })}\n\n`),
+        );
         controller.close();
         return;
       }
@@ -148,7 +169,7 @@ function createSseResponse(task: ReturnType<typeof getTask>, taskId: string, req
     headers: {
       'Content-Type': 'text/event-stream',
       'Cache-Control': 'no-cache',
-      'Connection': 'keep-alive',
+      Connection: 'keep-alive',
     },
   });
 }

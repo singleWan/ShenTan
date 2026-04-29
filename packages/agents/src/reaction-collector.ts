@@ -34,15 +34,36 @@ export interface PerEventOptions {
 }
 
 export async function runReactionCollectorForEvent(opts: PerEventOptions): Promise<AgentRunResult> {
-  const { model, db, characterId, characterName, characterType, event, maxIterations, maxOutputTokens, onLog, aliases, source, signal, providerOptions } = opts;
+  const {
+    model,
+    db,
+    characterId,
+    characterName,
+    characterType,
+    event,
+    maxIterations,
+    maxOutputTokens,
+    onLog,
+    aliases,
+    source,
+    signal,
+    providerOptions,
+  } = opts;
   const log = (msg: string) => onLog?.(msg);
-  log(`[ReactionCollector] 收集事件反应: "${event.title}" (ID: ${event.id}, 重要度: ${event.importance ?? '?'})`);
+  log(
+    `[ReactionCollector] 收集事件反应: "${event.title}" (ID: ${event.id}, 重要度: ${event.importance ?? '?'})`,
+  );
 
-  const aliasSection = buildAliasSection(characterName, aliases,
-    '搜索反应时请使用以上别名扩展搜索范围。');
-  const sourceWorks = source && source.length > 0 ? source.map(s => `「${s}」`).join('、') : '';
-  const sourceSection = buildSourceSection(source,
-    sourceWorks ? `请优先搜索与${sourceWorks}相关的读者/观众反应。` : '');
+  const aliasSection = buildAliasSection(
+    characterName,
+    aliases,
+    '搜索反应时请使用以上别名扩展搜索范围。',
+  );
+  const sourceWorks = source && source.length > 0 ? source.map((s) => `「${s}」`).join('、') : '';
+  const sourceSection = buildSourceSection(
+    source,
+    sourceWorks ? `请优先搜索与${sourceWorks}相关的读者/观众反应。` : '',
+  );
 
   const eventDetail = [
     `事件ID: ${event.id}`,
@@ -52,7 +73,9 @@ export async function runReactionCollectorForEvent(opts: PerEventOptions): Promi
     event.importance != null ? `重要度: ${event.importance}` : null,
     event.description ? `描述: ${event.description}` : null,
     event.content ? `详细内容: ${event.content.substring(0, 2000)}` : null,
-  ].filter(Boolean).join('\n');
+  ]
+    .filter(Boolean)
+    .join('\n');
 
   const userPrompt = `请全面收集以下事件的各方反应。
 

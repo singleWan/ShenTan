@@ -137,7 +137,10 @@ CREATE INDEX IF NOT EXISTS background_tasks_character_idx ON background_tasks(ch
 const MIGRATIONS: Array<{ sql: string; postUpdate?: string }> = [
   { sql: `ALTER TABLE characters ADD COLUMN aliases TEXT;` },
   { sql: `ALTER TABLE characters ADD COLUMN image_url TEXT;` },
-  { sql: `ALTER TABLE events ADD COLUMN updated_at TEXT NOT NULL DEFAULT '1970-01-01T00:00:00Z';`, postUpdate: `UPDATE events SET updated_at = created_at;` },
+  {
+    sql: `ALTER TABLE events ADD COLUMN updated_at TEXT NOT NULL DEFAULT '1970-01-01T00:00:00Z';`,
+    postUpdate: `UPDATE events SET updated_at = created_at;`,
+  },
   { sql: `ALTER TABLE reactions ADD COLUMN status TEXT NOT NULL DEFAULT 'active';` },
   { sql: `ALTER TABLE reactions ADD COLUMN collection_id TEXT;` },
   { sql: `ALTER TABLE events ADD COLUMN review_status TEXT;` },

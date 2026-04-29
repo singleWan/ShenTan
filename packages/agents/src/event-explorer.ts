@@ -26,8 +26,7 @@ export async function runEventExplorer(
   log(`[EventExplorer] 第 ${round} 轮事件拓展 "${characterName}"...`);
 
   const aliasSection = buildAliasSection(characterName, aliases);
-  const sourceSection = buildSourceSection(source,
-    '请优先从该作品中搜索和拓展事件。');
+  const sourceSection = buildSourceSection(source, '请优先从该作品中搜索和拓展事件。');
 
   const userPrompt = `请对角色 "${characterName}" (ID: ${characterId}) 的事件进行第 ${round} 轮拓展。
 角色类型: ${characterType === 'fictional' ? '虚构角色（不要使用 social 搜索模式）' : '历史人物（可使用 social 模式搜索社交媒体）'}

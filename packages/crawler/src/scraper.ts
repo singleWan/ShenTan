@@ -15,20 +15,39 @@ export interface ScrapedContent {
 async function extractContent(page: import('playwright').Page): Promise<ScrapedContent> {
   return page.evaluate(() => {
     const removeSelectors = [
-      'nav', 'header', 'footer', 'aside',
-      '.sidebar', '.ad', '.advertisement', '.nav',
-      '.menu', '.footer', '.header',
-      '[role="navigation"]', '[role="banner"]', '[role="contentinfo"]',
-      'script', 'style', 'noscript',
+      'nav',
+      'header',
+      'footer',
+      'aside',
+      '.sidebar',
+      '.ad',
+      '.advertisement',
+      '.nav',
+      '.menu',
+      '.footer',
+      '.header',
+      '[role="navigation"]',
+      '[role="banner"]',
+      '[role="contentinfo"]',
+      'script',
+      'style',
+      'noscript',
     ];
     for (const sel of removeSelectors) {
-      document.querySelectorAll(sel).forEach(el => el.remove());
+      document.querySelectorAll(sel).forEach((el) => el.remove());
     }
 
     const mainSelectors = [
-      'article', 'main', '.article-content', '.post-content',
-      '.entry-content', '.content', '#content', '.wiki-content',
-      '.mw-parser-output', '#mw-content-text',
+      'article',
+      'main',
+      '.article-content',
+      '.post-content',
+      '.entry-content',
+      '.content',
+      '#content',
+      '.wiki-content',
+      '.mw-parser-output',
+      '#mw-content-text',
     ];
     let mainEl: HTMLElement | null = null;
     for (const sel of mainSelectors) {
@@ -50,10 +69,11 @@ async function extractContent(page: import('playwright').Page): Promise<ScrapedC
       }
     });
 
-    const imageUrl = document.querySelector('meta[property="og:image"]')?.getAttribute('content')
-      || document.querySelector('meta[name="twitter:image"]')?.getAttribute('content')
-      || document.querySelector('meta[property="twitter:image:src"]')?.getAttribute('content')
-      || undefined;
+    const imageUrl =
+      document.querySelector('meta[property="og:image"]')?.getAttribute('content') ||
+      document.querySelector('meta[name="twitter:image"]')?.getAttribute('content') ||
+      document.querySelector('meta[property="twitter:image:src"]')?.getAttribute('content') ||
+      undefined;
 
     return { title, url: location.href, content, links, imageUrl };
   });
@@ -135,9 +155,7 @@ export async function scrapePages(urls: string[], concurrency = 2): Promise<Scra
   const results: ScrapedContent[] = [];
   for (let i = 0; i < urls.length; i += concurrency) {
     const batch = urls.slice(i, i + concurrency);
-    const batchResults = await Promise.allSettled(
-      batch.map(url => scrapePage(url))
-    );
+    const batchResults = await Promise.allSettled(batch.map((url) => scrapePage(url)));
     for (const r of batchResults) {
       if (r.status === 'fulfilled') results.push(r.value);
     }

@@ -160,7 +160,10 @@ export class SearchEngineManager {
     });
   }
 
-  private async executeWithFallback(query: string, options?: SearchOptions): Promise<SearchResult[]> {
+  private async executeWithFallback(
+    query: string,
+    options?: SearchOptions,
+  ): Promise<SearchResult[]> {
     if (await this.primary.isAvailable()) {
       try {
         return await this.primary.search(query, options);
@@ -169,7 +172,7 @@ export class SearchEngineManager {
       }
     }
 
-    if (this.fallback && await this.fallback.isAvailable()) {
+    if (this.fallback && (await this.fallback.isAvailable())) {
       return this.fallback.search(query, options);
     }
 
@@ -201,8 +204,7 @@ export class SearchEngineManager {
 
   private putCache(key: string, results: SearchResult[]): void {
     if (this.cache.size >= this.maxCacheSize) {
-      const oldest = [...this.cache.entries()]
-        .sort((a, b) => a[1].timestamp - b[1].timestamp)[0];
+      const oldest = [...this.cache.entries()].sort((a, b) => a[1].timestamp - b[1].timestamp)[0];
       if (oldest) this.cache.delete(oldest[0]);
     }
     this.cache.set(key, { results, timestamp: Date.now() });

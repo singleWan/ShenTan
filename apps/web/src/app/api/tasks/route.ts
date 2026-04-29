@@ -1,4 +1,7 @@
-import { getAllTasks as getAllTasksFromStore, type UnifiedTaskType } from '@/lib/task-manager/store';
+import {
+  getAllTasks as getAllTasksFromStore,
+  type UnifiedTaskType,
+} from '@/lib/task-manager/store';
 import { getTask as getCollectTask, recoverTasks } from '@/lib/collect/runner';
 import { getTask as getBgTask, recoverBgTasks } from '@/lib/task/runner';
 
@@ -56,8 +59,8 @@ export async function GET(request: Request) {
     return task;
   });
 
-  const runningCount = enriched.filter((t) =>
-    t.status === 'starting' || t.status === 'running'
+  const runningCount = enriched.filter(
+    (t) => t.status === 'starting' || t.status === 'running',
   ).length;
 
   return Response.json({

@@ -46,6 +46,8 @@ export function formatSourceDisplay(raw: string | null): string | null {
   try {
     const parsed = JSON.parse(raw);
     if (Array.isArray(parsed)) return parsed.join('、');
-  } catch { /* 旧数据：纯字符串 */ }
+  } catch {
+    /* 旧数据：纯字符串 */
+  }
   return raw;
 }

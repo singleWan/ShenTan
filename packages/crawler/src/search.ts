@@ -45,7 +45,9 @@ export class DuckDuckGoSearchEngine implements SearchEngine {
                   try {
                     const params = new URL(url.startsWith('//') ? `https:${url}` : url);
                     url = params.searchParams.get('uddg') || url;
-                  } catch {}
+                  } catch {
+                    // URL parsing failed, use original URL
+                  }
                 }
                 const snippet = snippetEl?.textContent?.trim() || '';
                 if (title && url) {
@@ -84,14 +86,21 @@ export class DuckDuckGoSearchEngine implements SearchEngine {
 // 向后兼容的函数导出
 const ddgEngine = new DuckDuckGoSearchEngine();
 
-export async function webSearch(query: string, maxResultsOrOptions?: number | SearchOptions): Promise<SearchResult[]> {
-  const options = typeof maxResultsOrOptions === 'number'
-    ? { maxResults: maxResultsOrOptions }
-    : maxResultsOrOptions ?? {};
+export async function webSearch(
+  query: string,
+  maxResultsOrOptions?: number | SearchOptions,
+): Promise<SearchResult[]> {
+  const options =
+    typeof maxResultsOrOptions === 'number'
+      ? { maxResults: maxResultsOrOptions }
+      : (maxResultsOrOptions ?? {});
   return ddgEngine.search(query, options);
 }
 
-export async function searchAndSummarize(query: string, maxPages = 3): Promise<{
+export async function searchAndSummarize(
+  query: string,
+  maxPages = 3,
+): Promise<{
   results: SearchResult[];
   pages: Array<{ title: string; url: string; content: string }>;
 }> {

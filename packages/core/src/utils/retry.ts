@@ -20,14 +20,33 @@ export const DEFAULT_THROTTLE_CONFIG: ThrottleConfig = {
 
 const RETRYABLE_STATUS_CODES = new Set([403, 429, 500, 502, 503, 504]);
 const RETRYABLE_KEYWORDS = [
-  'rate limit', 'rate_limit', 'too many requests', 'timeout', 'overloaded', 'capacity', 'throttl',
-  'socket disconnected', 'tls connection', 'other side closed', 'econnreset', 'econnrefused',
-  'etimedout', 'enotfound', 'network error', 'fetch failed', 'connect econn',
+  'rate limit',
+  'rate_limit',
+  'too many requests',
+  'timeout',
+  'overloaded',
+  'capacity',
+  'throttl',
+  'socket disconnected',
+  'tls connection',
+  'other side closed',
+  'econnreset',
+  'econnrefused',
+  'etimedout',
+  'enotfound',
+  'network error',
+  'fetch failed',
+  'connect econn',
 ];
 
 const RETRYABLE_ERROR_CODES = new Set([
-  'ECONNRESET', 'ECONNREFUSED', 'ETIMEDOUT', 'ENOTFOUND',
-  'ENETUNREACH', 'EAI_AGAIN', 'UND_ERR_SOCKET',
+  'ECONNRESET',
+  'ECONNREFUSED',
+  'ETIMEDOUT',
+  'ENOTFOUND',
+  'ENETUNREACH',
+  'EAI_AGAIN',
+  'UND_ERR_SOCKET',
 ]);
 
 /** 判断错误是否可重试 */
@@ -48,7 +67,7 @@ export function isRetryableError(error: unknown): boolean {
   }
 
   const msg = String(err.message ?? '').toLowerCase();
-  if (RETRYABLE_KEYWORDS.some(kw => msg.includes(kw))) {
+  if (RETRYABLE_KEYWORDS.some((kw) => msg.includes(kw))) {
     return true;
   }
 
@@ -56,7 +75,7 @@ export function isRetryableError(error: unknown): boolean {
 }
 
 function sleep(ms: number): Promise<void> {
-  return new Promise(resolve => setTimeout(resolve, ms));
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 /** 指数退避 + 随机抖动计算延迟 */

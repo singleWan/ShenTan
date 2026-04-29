@@ -3,10 +3,7 @@ import { resumeCollection } from '@/lib/collect/runner';
 import { resumeBgTask } from '@/lib/task/runner';
 
 // POST /api/tasks/[id]/continue — 继续中断/失败/取消的任务
-export async function POST(
-  _request: Request,
-  { params }: { params: Promise<{ id: string }> }
-) {
+export async function POST(_request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const task = getUnifiedTask(id);
   if (!task) {
@@ -32,8 +29,11 @@ export async function POST(
       return Response.json({ taskId: result.taskId });
     }
   } catch (err) {
-    return Response.json({
-      error: `继续任务失败: ${err instanceof Error ? err.message : '未知错误'}`,
-    }, { status: 500 });
+    return Response.json(
+      {
+        error: `继续任务失败: ${err instanceof Error ? err.message : '未知错误'}`,
+      },
+      { status: 500 },
+    );
   }
 }

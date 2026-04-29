@@ -19,13 +19,15 @@ async function extractRedditComments(page: Page): Promise<ScrapedContent | null>
   try {
     return await page.evaluate(() => {
       // old.reddit.com 帖子标题
-      const titleEl = document.querySelector('.thing.link a.title') ||
+      const titleEl =
+        document.querySelector('.thing.link a.title') ||
         document.querySelector('a.title') ||
         document.querySelector('[data-testid="post-title"]');
       const title = titleEl?.textContent?.trim() || document.title;
 
       // 帖子正文
-      const selfTextEl = document.querySelector('.thing.link .expando .usertext-body') ||
+      const selfTextEl =
+        document.querySelector('.thing.link .expando .usertext-body') ||
         document.querySelector('.usertext-body .md');
 
       let content = '';

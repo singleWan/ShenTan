@@ -42,7 +42,8 @@ async function extractTweet(page: Page): Promise<ScrapedContent | null> {
   try {
     return await page.evaluate(() => {
       // 推文文本内容
-      const tweetEl = document.querySelector('[data-testid="tweetText"]') ||
+      const tweetEl =
+        document.querySelector('[data-testid="tweetText"]') ||
         document.querySelector('.tweet-text') ||
         document.querySelector('[lang]');
 
@@ -51,8 +52,8 @@ async function extractTweet(page: Page): Promise<ScrapedContent | null> {
       const content = (tweetEl as HTMLElement).innerText?.trim() || '';
 
       // 用户名
-      const userEl = document.querySelector('[data-testid="User-Name"]') ||
-        document.querySelector('.username');
+      const userEl =
+        document.querySelector('[data-testid="User-Name"]') || document.querySelector('.username');
       const username = userEl?.textContent?.trim() || '';
 
       const title = username ? `${username}的推文` : document.title;
@@ -77,10 +78,10 @@ async function extractTweet(page: Page): Promise<ScrapedContent | null> {
 async function extractTwitterProfile(page: Page): Promise<ScrapedContent | null> {
   try {
     return await page.evaluate(() => {
-      const bioEl = document.querySelector('[data-testid="UserDescription"]') ||
-        document.querySelector('.bio');
-      const displayNameEl = document.querySelector('[data-testid="UserName"]') ||
-        document.querySelector('.fullname');
+      const bioEl =
+        document.querySelector('[data-testid="UserDescription"]') || document.querySelector('.bio');
+      const displayNameEl =
+        document.querySelector('[data-testid="UserName"]') || document.querySelector('.fullname');
       const name = displayNameEl?.textContent?.trim() || '';
       const bio = bioEl ? (bioEl as HTMLElement).innerText?.trim() : '';
 
@@ -115,15 +116,16 @@ async function extractTwitterProfile(page: Page): Promise<ScrapedContent | null>
 async function extractTwitterMeta(page: Page): Promise<ScrapedContent | null> {
   try {
     return await page.evaluate(() => {
-      const ogTitle = document.querySelector('meta[property="og:title"]')?.getAttribute('content') || '';
-      const ogDesc = document.querySelector('meta[property="og:description"]')?.getAttribute('content') || '';
-      const ogImage = document.querySelector('meta[property="og:image"]')?.getAttribute('content') || '';
+      const ogTitle =
+        document.querySelector('meta[property="og:title"]')?.getAttribute('content') || '';
+      const ogDesc =
+        document.querySelector('meta[property="og:description"]')?.getAttribute('content') || '';
+      const ogImage =
+        document.querySelector('meta[property="og:image"]')?.getAttribute('content') || '';
 
       if (!ogTitle && !ogDesc) return null;
 
-      const content = ogDesc
-        ? `${ogTitle}\n\n${ogDesc}`
-        : ogTitle;
+      const content = ogDesc ? `${ogTitle}\n\n${ogDesc}` : ogTitle;
 
       return {
         title: ogTitle || document.title,

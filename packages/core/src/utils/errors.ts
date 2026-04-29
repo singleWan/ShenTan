@@ -21,7 +21,11 @@ export class ShentanError extends Error {
   readonly code: ErrorCode;
   readonly context?: Record<string, unknown>;
 
-  constructor(code: ErrorCode, message: string, options?: { cause?: Error; context?: Record<string, unknown> }) {
+  constructor(
+    code: ErrorCode,
+    message: string,
+    options?: { cause?: Error; context?: Record<string, unknown> },
+  ) {
     super(message, { cause: options?.cause });
     this.name = 'ShentanError';
     this.code = code;
@@ -40,7 +44,13 @@ export class ShentanError extends Error {
 
   /** 判断是否为可重试的错误 */
   get isRetryable(): boolean {
-    return ['PROVIDER_ERROR', 'TIMEOUT_ERROR', 'SEARCH_ERROR', 'SCRAPE_ERROR', 'BROWSER_ERROR'].includes(this.code);
+    return [
+      'PROVIDER_ERROR',
+      'TIMEOUT_ERROR',
+      'SEARCH_ERROR',
+      'SCRAPE_ERROR',
+      'BROWSER_ERROR',
+    ].includes(this.code);
   }
 }
 
@@ -115,7 +125,10 @@ export class TimeoutError extends ShentanError {
 }
 
 export class AbortedError extends ShentanError {
-  constructor(message: string = '任务已取消', options?: { cause?: Error; context?: Record<string, unknown> }) {
+  constructor(
+    message: string = '任务已取消',
+    options?: { cause?: Error; context?: Record<string, unknown> },
+  ) {
     super('ABORTED_ERROR', message, options);
     this.name = 'AbortedError';
   }
@@ -127,7 +140,10 @@ export function isShentanError(error: unknown): error is ShentanError {
 }
 
 /** 将任意错误转换为 ShentanError */
-export function toShentanError(error: unknown, defaultCode: ErrorCode = 'AGENT_ERROR'): ShentanError {
+export function toShentanError(
+  error: unknown,
+  defaultCode: ErrorCode = 'AGENT_ERROR',
+): ShentanError {
   if (error instanceof ShentanError) return error;
   if (error instanceof Error) return new ShentanError(defaultCode, error.message, { cause: error });
   return new ShentanError(defaultCode, String(error));

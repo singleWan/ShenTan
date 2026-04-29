@@ -121,6 +121,7 @@ type(scope): 简短描述
 **scope**: `core` | `agents` | `crawler` | `web` | `cli`
 
 示例：
+
 - `feat(agents): 新增 StatementCollector Agent`
 - `fix(crawler): 修复 DuckDuckGo 搜索结果解析`
 - `refactor(core): 统一 Schema 定义，消除 Web 端重复`

@@ -136,7 +136,11 @@ export default function TasksPage() {
         const detail: TaskDetail = await res.json();
         if (detail.logs) setDetailLogs(detail.logs);
         if (detail.result) {
-          try { setDetailResult(JSON.parse(detail.result)); } catch { /* ignore */ }
+          try {
+            setDetailResult(JSON.parse(detail.result));
+          } catch {
+            /* ignore */
+          }
         }
       }
     } catch {
@@ -164,7 +168,10 @@ export default function TasksPage() {
           const data = JSON.parse(e.data);
           switch (data.type) {
             case 'log':
-              setDetailLogs((prev) => [...prev, { timestamp: data.timestamp, message: data.message }]);
+              setDetailLogs((prev) => [
+                ...prev,
+                { timestamp: data.timestamp, message: data.message },
+              ]);
               break;
             case 'progress':
               // progress 更新已在列表级别处理
@@ -207,7 +214,10 @@ export default function TasksPage() {
     setConfirmAction(null);
     if (expandedId === taskId) {
       setExpandedId(null);
-      if (sseRef.current) { sseRef.current.close(); sseRef.current = null; }
+      if (sseRef.current) {
+        sseRef.current.close();
+        sseRef.current = null;
+      }
     }
     fetchTasks();
   };
@@ -222,7 +232,10 @@ export default function TasksPage() {
   const handleContinue = async (taskId: string, taskType: string) => {
     const res = await fetch(`/api/tasks/${taskId}/continue`, { method: 'POST' });
     if (res.ok) {
-      if (sseRef.current) { sseRef.current.close(); sseRef.current = null; }
+      if (sseRef.current) {
+        sseRef.current.close();
+        sseRef.current = null;
+      }
       await fetchTasks();
       // 自动展开任务显示实时日志
       setTimeout(() => toggleExpand(taskId, 'starting', taskType), 500);
@@ -256,25 +269,35 @@ export default function TasksPage() {
 
   const parseProgress = (progressStr?: string | null) => {
     if (!progressStr) return null;
-    try { return JSON.parse(progressStr); } catch { return null; }
+    try {
+      return JSON.parse(progressStr);
+    } catch {
+      return null;
+    }
   };
 
   const isRunning = (status: string) => status === 'starting' || status === 'running';
 
   return (
     <div className="container">
-      <Link href="/" className="back-link">← 返回首页</Link>
+      <Link href="/" className="back-link">
+        ← 返回首页
+      </Link>
 
       <div className="header header-actions">
         <div>
           <h1 className="glitch">任务管理</h1>
           <p className="header-subtitle">
             查看和管理所有后台任务
-            {runningCount > 0 && <span className="running-indicator"> · {runningCount} 个运行中</span>}
+            {runningCount > 0 && (
+              <span className="running-indicator"> · {runningCount} 个运行中</span>
+            )}
           </p>
         </div>
         <div className="header-btn-group">
-          <Link href="/collect" className="btn-header">+ 新收集</Link>
+          <Link href="/collect" className="btn-header">
+            + 新收集
+          </Link>
           {tasks.length > 0 && (
             <button
               className="btn-header btn-danger-outline"
@@ -290,15 +313,17 @@ export default function TasksPage() {
       <div className="task-filters">
         <div className="filter-group">
           <span className="filter-label">类型</span>
-          {(['all', 'collection', 'expand-events', 'collect-reactions'] as FilterType[]).map((t) => (
-            <button
-              key={t}
-              className={`filter-btn ${filterType === t ? 'active' : ''}`}
-              onClick={() => setFilterType(t)}
-            >
-              {t === 'all' ? '全部' : TYPE_LABELS[t]}
-            </button>
-          ))}
+          {(['all', 'collection', 'expand-events', 'collect-reactions'] as FilterType[]).map(
+            (t) => (
+              <button
+                key={t}
+                className={`filter-btn ${filterType === t ? 'active' : ''}`}
+                onClick={() => setFilterType(t)}
+              >
+                {t === 'all' ? '全部' : TYPE_LABELS[t]}
+              </button>
+            ),
+          )}
         </div>
         <div className="filter-group">
           <span className="filter-label">状态</span>
@@ -319,7 +344,10 @@ export default function TasksPage() {
         <div className="empty-state">
           <h2>暂无任务</h2>
           <p>
-            <Link href="/collect" className="neon-link">开始收集</Link> 角色信息后，任务将显示在这里
+            <Link href="/collect" className="neon-link">
+              开始收集
+            </Link>{' '}
+            角色信息后，任务将显示在这里
           </p>
         </div>
       ) : (
@@ -329,14 +357,19 @@ export default function TasksPage() {
             const isExpanded = expandedId === task.id;
 
             return (
-              <div key={task.id} className={`task-card hud-card ${isRunning(task.status) ? 'task-running' : ''} ${isExpanded ? 'task-expanded' : ''}`}>
+              <div
+                key={task.id}
+                className={`task-card hud-card ${isRunning(task.status) ? 'task-running' : ''} ${isExpanded ? 'task-expanded' : ''}`}
+              >
                 {/* 可点击的摘要行 */}
                 <div
                   className="task-card-summary"
                   onClick={() => toggleExpand(task.id, task.status, task.type)}
                   role="button"
                   tabIndex={0}
-                  onKeyDown={(e) => { if (e.key === 'Enter') toggleExpand(task.id, task.status, task.type); }}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') toggleExpand(task.id, task.status, task.type);
+                  }}
                 >
                   <div className="task-card-header">
                     <div className="task-card-title">
@@ -360,12 +393,20 @@ export default function TasksPage() {
                       <div className="progress-bar-container">
                         <div
                           className="progress-bar"
-                          style={{ width: `${Math.round(((progress.stageIndex + 1) / progress.totalStages) * 100)}%` }}
+                          style={{
+                            width: `${Math.round(((progress.stageIndex + 1) / progress.totalStages) * 100)}%`,
+                          }}
                         />
                         <div className="progress-info">
                           <span>{progress.message || progress.stage}</span>
-                          {progress.eventsCount !== undefined && <span>事件: {progress.eventsCount}</span>}
-                          {progress.roundIndex !== undefined && <span>轮次: {progress.roundIndex}/{progress.maxRounds}</span>}
+                          {progress.eventsCount !== undefined && (
+                            <span>事件: {progress.eventsCount}</span>
+                          )}
+                          {progress.roundIndex !== undefined && (
+                            <span>
+                              轮次: {progress.roundIndex}/{progress.maxRounds}
+                            </span>
+                          )}
                         </div>
                       </div>
                     </div>
@@ -392,11 +433,16 @@ export default function TasksPage() {
                         </button>
                       )}
                       {task.status === 'completed' && task.characterId && (
-                        <Link href={`/characters/${task.characterId}`} className="btn-task btn-task-view">
+                        <Link
+                          href={`/characters/${task.characterId}`}
+                          className="btn-task btn-task-view"
+                        >
                           查看角色
                         </Link>
                       )}
-                      {(task.status === 'failed' || task.status === 'cancelled' || task.status === 'interrupted') && (
+                      {(task.status === 'failed' ||
+                        task.status === 'cancelled' ||
+                        task.status === 'interrupted') && (
                         <button
                           className="btn-task btn-task-continue"
                           onClick={() => handleContinue(task.id, task.type)}
@@ -423,8 +469,12 @@ export default function TasksPage() {
                             {detailResult.stages.map((s, i) => (
                               <div key={i} className={`result-stage ${s.success ? 'ok' : 'fail'}`}>
                                 <span>{STAGE_LABELS[s.stage] || s.stage}</span>
-                                <span>{(s.duration / 1000).toFixed(1)}s {s.success ? '✓' : '✗'}</span>
-                                {!s.success && s.message && <div className="stage-error">{s.message}</div>}
+                                <span>
+                                  {(s.duration / 1000).toFixed(1)}s {s.success ? '✓' : '✗'}
+                                </span>
+                                {!s.success && s.message && (
+                                  <div className="stage-error">{s.message}</div>
+                                )}
                               </div>
                             ))}
                           </div>
@@ -452,7 +502,9 @@ export default function TasksPage() {
                         <div className="terminal-body" ref={detailLogRef}>
                           {detailLogs.map((log, i) => (
                             <div key={i} className="log-line">
-                              <span className="log-time">{new Date(log.timestamp).toLocaleTimeString()}</span>
+                              <span className="log-time">
+                                {new Date(log.timestamp).toLocaleTimeString()}
+                              </span>
                               <span className="log-msg">{log.message}</span>
                             </div>
                           ))}
@@ -480,12 +532,17 @@ export default function TasksPage() {
               {confirmAction.type === 'clear' && '清理历史任务'}
             </h3>
             <p>
-              {confirmAction.type === 'cancel' && `确定要取消「${confirmAction.task?.characterName}」的任务吗？`}
-              {confirmAction.type === 'delete' && `确定要删除「${confirmAction.task?.characterName}」的任务记录吗？`}
-              {confirmAction.type === 'clear' && '确定要清理所有已完成、失败和已取消的任务吗？此操作不可撤销。'}
+              {confirmAction.type === 'cancel' &&
+                `确定要取消「${confirmAction.task?.characterName}」的任务吗？`}
+              {confirmAction.type === 'delete' &&
+                `确定要删除「${confirmAction.task?.characterName}」的任务记录吗？`}
+              {confirmAction.type === 'clear' &&
+                '确定要清理所有已完成、失败和已取消的任务吗？此操作不可撤销。'}
             </p>
             <div className="confirm-actions">
-              <button className="btn-confirm-cancel" onClick={() => setConfirmAction(null)}>取消</button>
+              <button className="btn-confirm-cancel" onClick={() => setConfirmAction(null)}>
+                取消
+              </button>
               <button
                 className="btn-confirm-delete"
                 onClick={() => {

@@ -6,7 +6,13 @@ import { useRouter } from 'next/navigation';
 
 interface SearchResult {
   characters: Array<{ id: number; name: string; type: string; description: string | null }>;
-  events: Array<{ id: number; title: string; dateText: string | null; category: string; characterId: number }>;
+  events: Array<{
+    id: number;
+    title: string;
+    dateText: string | null;
+    category: string;
+    characterId: number;
+  }>;
 }
 
 export default function SearchBar() {
@@ -36,22 +42,28 @@ export default function SearchBar() {
     }
   }, []);
 
-  const handleChange = useCallback((value: string) => {
-    setQuery(value);
-    if (timerRef.current) clearTimeout(timerRef.current);
-    timerRef.current = setTimeout(() => search(value), 300);
-  }, [search]);
+  const handleChange = useCallback(
+    (value: string) => {
+      setQuery(value);
+      if (timerRef.current) clearTimeout(timerRef.current);
+      timerRef.current = setTimeout(() => search(value), 300);
+    },
+    [search],
+  );
 
-  const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && query.trim()) {
-      e.preventDefault();
-      router.push(`/search?q=${encodeURIComponent(query.trim())}`);
-      setIsOpen(false);
-    }
-    if (e.key === 'Escape') {
-      setIsOpen(false);
-    }
-  }, [query, router]);
+  const handleKeyDown = useCallback(
+    (e: React.KeyboardEvent) => {
+      if (e.key === 'Enter' && query.trim()) {
+        e.preventDefault();
+        router.push(`/search?q=${encodeURIComponent(query.trim())}`);
+        setIsOpen(false);
+      }
+      if (e.key === 'Escape') {
+        setIsOpen(false);
+      }
+    },
+    [query, router],
+  );
 
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
@@ -75,7 +87,9 @@ export default function SearchBar() {
           placeholder="搜索角色或事件..."
           value={query}
           onChange={(e) => handleChange(e.target.value)}
-          onFocus={() => { if (results) setIsOpen(true); }}
+          onFocus={() => {
+            if (results) setIsOpen(true);
+          }}
           onKeyDown={handleKeyDown}
         />
         {loading && <span className="search-loading">...</span>}

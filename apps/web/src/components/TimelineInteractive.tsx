@@ -49,238 +49,290 @@ export default function TimelineInteractive({
 }: TimelineInteractiveProps) {
   const router = useRouter();
   const [taskStates, setTaskStates] = useState<Map<number, TaskState>>(new Map());
-  const [confirmState, setConfirmState] = useState<{ type: 'event' | 'reaction'; id: number; name: string } | null>(null);
+  const [confirmState, setConfirmState] = useState<{
+    type: 'event' | 'reaction';
+    id: number;
+    name: string;
+  } | null>(null);
   const [deleting, setDeleting] = useState(false);
   const { connect } = useEventSource();
 
-  const connectSSE = useCallback((url: string, trackKey: number) => {
-    connect(url, {
-      onLog: (data) => {
-        setTaskStates(prev => {
-          const next = new Map(prev);
-          const current = next.get(trackKey);
-          if (!current) return prev;
-          next.set(trackKey, {
-            ...current,
-            status: 'running',
-            logs: [...current.logs, { timestamp: data.timestamp, message: data.message }],
+  const connectSSE = useCallback(
+    (url: string, trackKey: number) => {
+      connect(url, {
+        onLog: (data) => {
+          setTaskStates((prev) => {
+            const next = new Map(prev);
+            const current = next.get(trackKey);
+            if (!current) return prev;
+            next.set(trackKey, {
+              ...current,
+              status: 'running',
+              logs: [...current.logs, { timestamp: data.timestamp, message: data.message }],
+            });
+            return next;
           });
-          return next;
-        });
-      },
-      onComplete: () => {
-        setTaskStates(prev => {
-          const next = new Map(prev);
-          const current = next.get(trackKey);
-          if (current) next.set(trackKey, { ...current, status: 'completed', logs: current.logs });
-          return next;
-        });
-        setTimeout(() => router.refresh(), 500);
-      },
-      onError: (data) => {
-        setTaskStates(prev => {
-          const next = new Map(prev);
-          const current = next.get(trackKey);
-          if (current) next.set(trackKey, { ...current, status: 'failed', error: data.message, logs: current.logs });
-          return next;
-        });
-      },
-      onCancelled: () => {
-        setTaskStates(prev => {
-          const next = new Map(prev);
-          const current = next.get(trackKey);
-          if (current) next.set(trackKey, { ...current, status: 'cancelled', logs: current.logs });
-          return next;
-        });
-      },
-      onConnectionError: () => {
-        setTaskStates(prev => {
-          const next = new Map(prev);
-          const current = next.get(trackKey);
-          if (current && (current.status === 'starting' || current.status === 'running')) {
-            next.set(trackKey, { ...current, status: 'failed', error: '连接断开' });
-          }
-          return next;
-        });
-      },
-    });
-  }, [connect, router]);
-
-  const handleExpandRange = useCallback(async (
-    afterEvent: EventData,
-    beforeEvent: EventData,
-    targetIdx: number,
-  ) => {
-    const trackKey = afterEvent.id;
-
-    setTaskStates(prev => {
-      const next = new Map(prev);
-      next.set(trackKey, { type: 'expand', status: 'starting', logs: [] });
-      return next;
-    });
-
-    try {
-      const res = await fetch('/api/events/expand', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          characterId,
-          characterName,
-          characterAliases: characterAliases ?? undefined,
-          mode: 'range',
-          afterEvent: { id: afterEvent.id, title: afterEvent.title, dateText: afterEvent.dateText, dateSortable: afterEvent.dateSortable, description: afterEvent.description },
-          beforeEvent: { id: beforeEvent.id, title: beforeEvent.title, dateText: beforeEvent.dateText, dateSortable: beforeEvent.dateSortable, description: beforeEvent.description },
-        }),
+        },
+        onComplete: () => {
+          setTaskStates((prev) => {
+            const next = new Map(prev);
+            const current = next.get(trackKey);
+            if (current)
+              next.set(trackKey, { ...current, status: 'completed', logs: current.logs });
+            return next;
+          });
+          setTimeout(() => router.refresh(), 500);
+        },
+        onError: (data) => {
+          setTaskStates((prev) => {
+            const next = new Map(prev);
+            const current = next.get(trackKey);
+            if (current)
+              next.set(trackKey, {
+                ...current,
+                status: 'failed',
+                error: data.message,
+                logs: current.logs,
+              });
+            return next;
+          });
+        },
+        onCancelled: () => {
+          setTaskStates((prev) => {
+            const next = new Map(prev);
+            const current = next.get(trackKey);
+            if (current)
+              next.set(trackKey, { ...current, status: 'cancelled', logs: current.logs });
+            return next;
+          });
+        },
+        onConnectionError: () => {
+          setTaskStates((prev) => {
+            const next = new Map(prev);
+            const current = next.get(trackKey);
+            if (current && (current.status === 'starting' || current.status === 'running')) {
+              next.set(trackKey, { ...current, status: 'failed', error: '连接断开' });
+            }
+            return next;
+          });
+        },
       });
-      const data = await res.json();
-      if (data.taskId) {
-        setTaskStates(prev => {
-          const next = new Map(prev);
-          const current = next.get(trackKey);
-          if (current) next.set(trackKey, { ...current, taskId: data.taskId });
-          return next;
-        });
-        connectSSE(`/api/events/expand?taskId=${data.taskId}`, trackKey);
-      }
-    } catch {
-      setTaskStates(prev => {
+    },
+    [connect, router],
+  );
+
+  const handleExpandRange = useCallback(
+    async (afterEvent: EventData, beforeEvent: EventData, targetIdx: number) => {
+      const trackKey = afterEvent.id;
+
+      setTaskStates((prev) => {
         const next = new Map(prev);
-        next.set(trackKey, { type: 'expand', status: 'failed', error: '请求失败', logs: [] });
+        next.set(trackKey, { type: 'expand', status: 'starting', logs: [] });
         return next;
       });
-    }
-  }, [characterId, characterName, characterAliases, connectSSE]);
 
-  const handleExpandAround = useCallback(async (evt: EventData) => {
-    const trackKey = evt.id;
-
-    setTaskStates(prev => {
-      const next = new Map(prev);
-      next.set(trackKey, { type: 'expand', status: 'starting', logs: [] });
-      return next;
-    });
-
-    try {
-      const res = await fetch('/api/events/expand', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          characterId,
-          characterName,
-          characterAliases: characterAliases ?? undefined,
-          mode: 'around',
-          centerEvent: { id: evt.id, title: evt.title, dateText: evt.dateText, dateSortable: evt.dateSortable, description: evt.description, category: evt.category, importance: evt.importance },
-        }),
-      });
-      const data = await res.json();
-      if (data.taskId) {
-        setTaskStates(prev => {
+      try {
+        const res = await fetch('/api/events/expand', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            characterId,
+            characterName,
+            characterAliases: characterAliases ?? undefined,
+            mode: 'range',
+            afterEvent: {
+              id: afterEvent.id,
+              title: afterEvent.title,
+              dateText: afterEvent.dateText,
+              dateSortable: afterEvent.dateSortable,
+              description: afterEvent.description,
+            },
+            beforeEvent: {
+              id: beforeEvent.id,
+              title: beforeEvent.title,
+              dateText: beforeEvent.dateText,
+              dateSortable: beforeEvent.dateSortable,
+              description: beforeEvent.description,
+            },
+          }),
+        });
+        const data = await res.json();
+        if (data.taskId) {
+          setTaskStates((prev) => {
+            const next = new Map(prev);
+            const current = next.get(trackKey);
+            if (current) next.set(trackKey, { ...current, taskId: data.taskId });
+            return next;
+          });
+          connectSSE(`/api/events/expand?taskId=${data.taskId}`, trackKey);
+        }
+      } catch {
+        setTaskStates((prev) => {
           const next = new Map(prev);
-          const current = next.get(trackKey);
-          if (current) next.set(trackKey, { ...current, taskId: data.taskId });
+          next.set(trackKey, { type: 'expand', status: 'failed', error: '请求失败', logs: [] });
           return next;
         });
-        connectSSE(`/api/events/expand?taskId=${data.taskId}`, trackKey);
       }
-    } catch {
-      setTaskStates(prev => {
+    },
+    [characterId, characterName, characterAliases, connectSSE],
+  );
+
+  const handleExpandAround = useCallback(
+    async (evt: EventData) => {
+      const trackKey = evt.id;
+
+      setTaskStates((prev) => {
         const next = new Map(prev);
-        next.set(trackKey, { type: 'expand', status: 'failed', error: '请求失败', logs: [] });
+        next.set(trackKey, { type: 'expand', status: 'starting', logs: [] });
         return next;
       });
-    }
-  }, [characterId, characterName, characterAliases, connectSSE]);
 
-  const handleCollectReactions = useCallback(async (evt: EventData) => {
-    const trackKey = -evt.id;
-
-    setTaskStates(prev => {
-      const next = new Map(prev);
-      next.set(trackKey, { type: 'reaction', status: 'starting', logs: [] });
-      return next;
-    });
-
-    try {
-      const res = await fetch(`/api/events/${evt.id}/reactions`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          characterId,
-          characterName,
-          characterAliases: characterAliases ?? undefined,
-          eventContext: {
-            title: evt.title,
-            description: evt.description,
-            dateText: evt.dateText,
-            category: evt.category,
-            importance: evt.importance,
-          },
-        }),
-      });
-      const data = await res.json();
-      if (data.taskId) {
-        setTaskStates(prev => {
+      try {
+        const res = await fetch('/api/events/expand', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            characterId,
+            characterName,
+            characterAliases: characterAliases ?? undefined,
+            mode: 'around',
+            centerEvent: {
+              id: evt.id,
+              title: evt.title,
+              dateText: evt.dateText,
+              dateSortable: evt.dateSortable,
+              description: evt.description,
+              category: evt.category,
+              importance: evt.importance,
+            },
+          }),
+        });
+        const data = await res.json();
+        if (data.taskId) {
+          setTaskStates((prev) => {
+            const next = new Map(prev);
+            const current = next.get(trackKey);
+            if (current) next.set(trackKey, { ...current, taskId: data.taskId });
+            return next;
+          });
+          connectSSE(`/api/events/expand?taskId=${data.taskId}`, trackKey);
+        }
+      } catch {
+        setTaskStates((prev) => {
           const next = new Map(prev);
-          const current = next.get(trackKey);
-          if (current) next.set(trackKey, { ...current, taskId: data.taskId });
+          next.set(trackKey, { type: 'expand', status: 'failed', error: '请求失败', logs: [] });
           return next;
         });
-        connectSSE(`/api/events/${evt.id}/reactions?taskId=${data.taskId}`, trackKey);
       }
-    } catch {
-      setTaskStates(prev => {
+    },
+    [characterId, characterName, characterAliases, connectSSE],
+  );
+
+  const handleCollectReactions = useCallback(
+    async (evt: EventData) => {
+      const trackKey = -evt.id;
+
+      setTaskStates((prev) => {
         const next = new Map(prev);
-        next.set(trackKey, { type: 'reaction', status: 'failed', error: '请求失败', logs: [] });
+        next.set(trackKey, { type: 'reaction', status: 'starting', logs: [] });
         return next;
       });
-    }
-  }, [characterId, characterName, characterAliases, connectSSE]);
 
-  const isTaskRunning = useCallback((key: number) => {
-    const state = taskStates.get(key);
-    return state?.status === 'starting' || state?.status === 'running';
-  }, [taskStates]);
+      try {
+        const res = await fetch(`/api/events/${evt.id}/reactions`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            characterId,
+            characterName,
+            characterAliases: characterAliases ?? undefined,
+            eventContext: {
+              title: evt.title,
+              description: evt.description,
+              dateText: evt.dateText,
+              category: evt.category,
+              importance: evt.importance,
+            },
+          }),
+        });
+        const data = await res.json();
+        if (data.taskId) {
+          setTaskStates((prev) => {
+            const next = new Map(prev);
+            const current = next.get(trackKey);
+            if (current) next.set(trackKey, { ...current, taskId: data.taskId });
+            return next;
+          });
+          connectSSE(`/api/events/${evt.id}/reactions?taskId=${data.taskId}`, trackKey);
+        }
+      } catch {
+        setTaskStates((prev) => {
+          const next = new Map(prev);
+          next.set(trackKey, { type: 'reaction', status: 'failed', error: '请求失败', logs: [] });
+          return next;
+        });
+      }
+    },
+    [characterId, characterName, characterAliases, connectSSE],
+  );
 
-  const handleCancelTask = useCallback(async (key: number) => {
-    const state = taskStates.get(key);
-    if (!state?.taskId) return;
+  const isTaskRunning = useCallback(
+    (key: number) => {
+      const state = taskStates.get(key);
+      return state?.status === 'starting' || state?.status === 'running';
+    },
+    [taskStates],
+  );
 
-    let cancelUrl: string;
-    if (state.type === 'expand') {
-      cancelUrl = `/api/events/expand?taskId=${state.taskId}`;
-    } else {
-      const eventId = Math.abs(key);
-      cancelUrl = `/api/events/${eventId}/reactions?taskId=${state.taskId}`;
-    }
+  const handleCancelTask = useCallback(
+    async (key: number) => {
+      const state = taskStates.get(key);
+      if (!state?.taskId) return;
 
-    try {
-      await fetch(cancelUrl, { method: 'DELETE' });
-    } catch {
-      // 取消请求失败，忽略
-    }
-  }, [taskStates]);
+      let cancelUrl: string;
+      if (state.type === 'expand') {
+        cancelUrl = `/api/events/expand?taskId=${state.taskId}`;
+      } else {
+        const eventId = Math.abs(key);
+        cancelUrl = `/api/events/${eventId}/reactions?taskId=${state.taskId}`;
+      }
 
-  const handleDeleteEvent = useCallback(async (eventId: number) => {
-    setDeleting(true);
-    try {
-      const res = await fetch(`/api/events/${eventId}`, { method: 'DELETE' });
-      if (res.ok) router.refresh();
-    } finally {
-      setDeleting(false);
-      setConfirmState(null);
-    }
-  }, [router]);
+      try {
+        await fetch(cancelUrl, { method: 'DELETE' });
+      } catch {
+        // 取消请求失败，忽略
+      }
+    },
+    [taskStates],
+  );
 
-  const handleDeleteReaction = useCallback(async (reactionId: number) => {
-    setDeleting(true);
-    try {
-      const res = await fetch(`/api/reactions/${reactionId}`, { method: 'DELETE' });
-      if (res.ok) router.refresh();
-    } finally {
-      setDeleting(false);
-      setConfirmState(null);
-    }
-  }, [router]);
+  const handleDeleteEvent = useCallback(
+    async (eventId: number) => {
+      setDeleting(true);
+      try {
+        const res = await fetch(`/api/events/${eventId}`, { method: 'DELETE' });
+        if (res.ok) router.refresh();
+      } finally {
+        setDeleting(false);
+        setConfirmState(null);
+      }
+    },
+    [router],
+  );
+
+  const handleDeleteReaction = useCallback(
+    async (reactionId: number) => {
+      setDeleting(true);
+      try {
+        const res = await fetch(`/api/reactions/${reactionId}`, { method: 'DELETE' });
+        if (res.ok) router.refresh();
+      } finally {
+        setDeleting(false);
+        setConfirmState(null);
+      }
+    },
+    [router],
+  );
 
   return (
     <div className="timeline">
@@ -354,22 +406,30 @@ export default function TimelineInteractive({
                 </div>
 
                 {/* 拓展任务内联进度 */}
-                {expandState && (expandState.status === 'running' || expandState.status === 'starting') && (
-                  <div className="inline-progress">
-                    <div className="inline-progress-header">
-                      <span className="inline-progress-title">正在拓展事件...</span>
-                      <button className="inline-cancel-btn" onClick={() => handleCancelTask(expandTaskKey)}>取消</button>
+                {expandState &&
+                  (expandState.status === 'running' || expandState.status === 'starting') && (
+                    <div className="inline-progress">
+                      <div className="inline-progress-header">
+                        <span className="inline-progress-title">正在拓展事件...</span>
+                        <button
+                          className="inline-cancel-btn"
+                          onClick={() => handleCancelTask(expandTaskKey)}
+                        >
+                          取消
+                        </button>
+                      </div>
+                      <div className="inline-log">
+                        {expandState.logs.slice(-5).map((log, i) => (
+                          <div key={i} className="log-line muted">
+                            <span className="log-time">
+                              {new Date(log.timestamp).toLocaleTimeString()}
+                            </span>
+                            <span className="log-msg">{log.message}</span>
+                          </div>
+                        ))}
+                      </div>
                     </div>
-                    <div className="inline-log">
-                      {expandState.logs.slice(-5).map((log, i) => (
-                        <div key={i} className="log-line muted">
-                          <span className="log-time">{new Date(log.timestamp).toLocaleTimeString()}</span>
-                          <span className="log-msg">{log.message}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
+                  )}
 
                 {/* 拓展完成/失败提示 */}
                 {expandState?.status === 'completed' && (
@@ -395,22 +455,30 @@ export default function TimelineInteractive({
                 )}
 
                 {/* 反应收集内联进度 */}
-                {reactionState && (reactionState.status === 'running' || reactionState.status === 'starting') && (
-                  <div className="inline-progress">
-                    <div className="inline-progress-header">
-                      <span className="inline-progress-title">正在收集各方反应...</span>
-                      <button className="inline-cancel-btn" onClick={() => handleCancelTask(reactionTaskKey)}>取消</button>
+                {reactionState &&
+                  (reactionState.status === 'running' || reactionState.status === 'starting') && (
+                    <div className="inline-progress">
+                      <div className="inline-progress-header">
+                        <span className="inline-progress-title">正在收集各方反应...</span>
+                        <button
+                          className="inline-cancel-btn"
+                          onClick={() => handleCancelTask(reactionTaskKey)}
+                        >
+                          取消
+                        </button>
+                      </div>
+                      <div className="inline-log">
+                        {reactionState.logs.slice(-5).map((log, i) => (
+                          <div key={i} className="log-line muted">
+                            <span className="log-time">
+                              {new Date(log.timestamp).toLocaleTimeString()}
+                            </span>
+                            <span className="log-msg">{log.message}</span>
+                          </div>
+                        ))}
+                      </div>
                     </div>
-                    <div className="inline-log">
-                      {reactionState.logs.slice(-5).map((log, i) => (
-                        <div key={i} className="log-line muted">
-                          <span className="log-time">{new Date(log.timestamp).toLocaleTimeString()}</span>
-                          <span className="log-msg">{log.message}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
+                  )}
 
                 {/* 反应收集完成/失败 */}
                 {reactionState?.status === 'completed' && (
@@ -443,12 +511,16 @@ export default function TimelineInteractive({
                       <div key={r.id} className="reaction-item">
                         <div className="reaction-header">
                           <span className="reaction-actor">{r.reactor}</span>
-                          <span className={`reaction-sentiment sentiment-${r.sentiment ?? 'neutral'}`}>
+                          <span
+                            className={`reaction-sentiment sentiment-${r.sentiment ?? 'neutral'}`}
+                          >
                             {sentimentLabel(r.sentiment ?? 'neutral')}
                           </span>
                           <button
                             className="reaction-delete-btn"
-                            onClick={() => setConfirmState({ type: 'reaction', id: r.id, name: r.reactor })}
+                            onClick={() =>
+                              setConfirmState({ type: 'reaction', id: r.id, name: r.reactor })
+                            }
                             title="删除反应"
                           >
                             ×

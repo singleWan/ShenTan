@@ -25,8 +25,10 @@ export async function runStatementCollector(
   log(`[StatementCollector] 开始收集 "${characterName}" 的发言、政策与声明...`);
 
   const aliasSection = buildAliasSection(characterName, aliases);
-  const sourceSection = buildSourceSection(source,
-    '请优先从该作品中搜索角色的发言、声明和相关信息。');
+  const sourceSection = buildSourceSection(
+    source,
+    '请优先从该作品中搜索角色的发言、声明和相关信息。',
+  );
 
   const userPrompt = `请全面收集角色 "${characterName}" (ID: ${characterId}) 的公开发言、政策决策、公开声明以及坊间流传的重要信息。
 角色类型: ${characterType === 'fictional' ? '虚构角色（无真实社交账号，不要搜索社交媒体）' : '历史人物（可搜索微博、X/Twitter、Facebook等社交媒体）'}

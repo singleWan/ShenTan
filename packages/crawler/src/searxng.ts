@@ -86,11 +86,11 @@ export class SearXNGSearchEngine implements SearchEngine {
     if (keywords.length === 0 || results.length === 0) return 1;
 
     let matchedResults = 0;
-    const lowerKeywords = keywords.map(k => k.toLowerCase());
+    const lowerKeywords = keywords.map((k) => k.toLowerCase());
 
     for (const r of results) {
       const text = `${r.title} ${r.snippet}`.toLowerCase();
-      const hasMatch = lowerKeywords.some(kw => text.includes(kw));
+      const hasMatch = lowerKeywords.some((kw) => text.includes(kw));
       if (hasMatch) matchedResults++;
     }
 
@@ -145,10 +145,7 @@ export class SearXNGSearchEngine implements SearchEngine {
     }
   }
 
-  private async singlePageSearch(
-    query: string,
-    options?: SearchOptions,
-  ): Promise<SearchResult[]> {
+  private async singlePageSearch(query: string, options?: SearchOptions): Promise<SearchResult[]> {
     await this.throttle();
 
     const params = new URLSearchParams({
@@ -176,7 +173,7 @@ export class SearXNGSearchEngine implements SearchEngine {
 
     try {
       const response = await fetch(`${this.baseUrl}/search?${params.toString()}`, {
-        headers: { 'Accept': 'application/json' },
+        headers: { Accept: 'application/json' },
         signal: AbortSignal.timeout(15000),
       });
 
@@ -185,19 +182,17 @@ export class SearXNGSearchEngine implements SearchEngine {
       }
 
       const data = (await response.json()) as SearXNGResponse;
-      return (data.results ?? [])
-        .slice(0, maxResults)
-        .map((r) => ({
-          title: r.title,
-          url: r.url,
-          snippet: r.content ?? '',
-          engine: r.engines?.join(',') ?? r.engine,
-          publishedDate: r.publishedDate,
-        }));
+      return (data.results ?? []).slice(0, maxResults).map((r) => ({
+        title: r.title,
+        url: r.url,
+        snippet: r.content ?? '',
+        engine: r.engines?.join(',') ?? r.engine,
+        publishedDate: r.publishedDate,
+      }));
     } catch (error) {
       const msg = (error as Error).message;
       if (msg.includes('fetch') || msg.includes('ECONNREFUSED')) {
-        throw new Error(`SearXNG unavailable at ${this.baseUrl}: ${msg}`);
+        throw new Error(`SearXNG unavailable at ${this.baseUrl}: ${msg}`, { cause: error });
       }
       throw error;
     }

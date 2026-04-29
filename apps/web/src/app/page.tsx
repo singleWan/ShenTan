@@ -23,8 +23,11 @@ export default async function HomePage() {
         <div className="header-right">
           <SearchBar />
           <div className="header-btn-group">
-            <Link href="/graph" className="btn-header">
-              关系网络
+            <Link href="/review" className="btn-header">
+              事件审查
+            </Link>
+            <Link href="/compare" className="btn-header">
+              角色对比
             </Link>
             <Link href="/tasks" className="btn-header">
               任务管理
@@ -40,7 +43,10 @@ export default async function HomePage() {
         <div className="empty-state">
           <h2>暂无角色数据</h2>
           <p>
-            <Link href="/collect" className="neon-link">点击这里</Link> 开始收集角色信息
+            <Link href="/collect" className="neon-link">
+              点击这里
+            </Link>{' '}
+            开始收集角色信息
           </p>
         </div>
       ) : (

@@ -3,41 +3,33 @@ import { getTask as getCollectTask, cancelTask as cancelCollectTask } from '@/li
 import { getTask as getBgTask, cancelTask as cancelBgTask } from '@/lib/task/runner';
 
 // GET /api/tasks/[id] — 任务详情
-export async function GET(
-  _request: Request,
-  { params }: { params: Promise<{ id: string }> }
-) {
+export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const task = getUnifiedTask(id);
   if (!task) {
     return Response.json({ error: '任务不存在' }, { status: 404 });
   }
 
-  // 从内存中获取实时日志
-  let logs: Array<{ timestamp: string; message: string }> = [];
-
   if (task.type === 'collection') {
     const active = getCollectTask(id);
     if (active) {
-      logs = active.logs;
       return Response.json({
         ...task,
         status: active.status,
         error: active.error ?? task.error,
         progress: active.progress ? JSON.stringify(active.progress) : task.progress,
         result: active.result ? JSON.stringify(active.result) : task.result,
-        logs,
+        logs: active.logs,
       });
     }
   } else {
     const active = getBgTask(id);
     if (active) {
-      logs = active.logs;
       return Response.json({
         ...task,
         status: active.status,
         error: active.error ?? task.error,
-        logs,
+        logs: active.logs,
       });
     }
   }
@@ -46,10 +38,7 @@ export async function GET(
 }
 
 // DELETE /api/tasks/[id] — 取消或删除任务
-export async function DELETE(
-  _request: Request,
-  { params }: { params: Promise<{ id: string }> }
-) {
+export async function DELETE(_request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const task = getUnifiedTask(id);
   if (!task) {

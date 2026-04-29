@@ -35,7 +35,18 @@ export interface RunAgentParams {
 }
 
 export async function runAgentLoop(params: RunAgentParams): Promise<AgentRunResult> {
-  const { model, db, systemPrompt, userPrompt, maxIterations, maxOutputTokens, agentName, providerOptions, onLog, signal } = params;
+  const {
+    model,
+    db,
+    systemPrompt,
+    userPrompt,
+    maxIterations,
+    maxOutputTokens,
+    agentName,
+    providerOptions,
+    onLog,
+    signal,
+  } = params;
   const tools = createTools(db);
 
   // 检查是否已取消

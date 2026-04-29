@@ -1,10 +1,7 @@
 import { startReactionTask, getTask, subscribe, cancelTask } from '@/lib/task/runner';
 import { rateLimitResponse } from '@/lib/shared/rate-limiter';
 
-export async function POST(
-  request: Request,
-  { params }: { params: Promise<{ id: string }> },
-) {
+export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const limited = rateLimitResponse(request, 'reactions');
   if (limited) return limited;
 
@@ -53,10 +50,7 @@ export async function POST(
   return Response.json({ taskId });
 }
 
-export async function GET(
-  request: Request,
-  { params }: { params: Promise<{ id: string }> },
-) {
+export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const { searchParams } = new URL(request.url);
   const taskId = searchParams.get('taskId');
@@ -76,12 +70,16 @@ export async function GET(
         controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: 'log', ...log })}\n\n`));
       }
       if (task.status === 'completed' && task.result) {
-        controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: 'complete', result: task.result })}\n\n`));
+        controller.enqueue(
+          encoder.encode(`data: ${JSON.stringify({ type: 'complete', result: task.result })}\n\n`),
+        );
         controller.close();
         return;
       }
       if (task.status === 'failed' && task.error) {
-        controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: 'error', message: task.error })}\n\n`));
+        controller.enqueue(
+          encoder.encode(`data: ${JSON.stringify({ type: 'error', message: task.error })}\n\n`),
+        );
         controller.close();
         return;
       }
@@ -112,15 +110,12 @@ export async function GET(
     headers: {
       'Content-Type': 'text/event-stream',
       'Cache-Control': 'no-cache',
-      'Connection': 'keep-alive',
+      Connection: 'keep-alive',
     },
   });
 }
 
-export async function DELETE(
-  request: Request,
-  { params }: { params: Promise<{ id: string }> },
-) {
+export async function DELETE(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { searchParams } = new URL(request.url);
   const taskId = searchParams.get('taskId');
   if (!taskId) {

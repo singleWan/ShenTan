@@ -4,9 +4,16 @@ export interface CollectOptions {
   source?: string[];
   maxRounds?: number;
   aliases?: string;
+  existingCharacterId?: number;
 }
 
-export type TaskStatus = 'starting' | 'running' | 'completed' | 'failed' | 'cancelled' | 'interrupted';
+export type TaskStatus =
+  | 'starting'
+  | 'running'
+  | 'completed'
+  | 'failed'
+  | 'cancelled'
+  | 'interrupted';
 
 export interface ProgressData {
   stage: string;

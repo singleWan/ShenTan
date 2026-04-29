@@ -26,11 +26,14 @@ export async function runSingleReactionCollector(
   signal?: AbortSignal,
 ): Promise<AgentRunResult> {
   const log = (msg: string) => onLog?.(msg);
-  log(`[SingleReaction] 开始收集事件 "${eventContext.title}" (ID: ${eventContext.id}) 的各方反应...`);
+  log(
+    `[SingleReaction] 开始收集事件 "${eventContext.title}" (ID: ${eventContext.id}) 的各方反应...`,
+  );
 
-  const aliasSection = aliases && aliases.length > 0
-    ? `\n## 角色搜索别名\n\n角色 "${characterName}" 在不同平台/语言下的搜索关键字：\n${formatAliasesForPrompt(aliases)}\n\n搜索反应时请使用以上所有别名。\n`
-    : '';
+  const aliasSection =
+    aliases && aliases.length > 0
+      ? `\n## 角色搜索别名\n\n角色 "${characterName}" 在不同平台/语言下的搜索关键字：\n${formatAliasesForPrompt(aliases)}\n\n搜索反应时请使用以上所有别名。\n`
+      : '';
 
   // 构建事件详情
   const eventDetailLines = [

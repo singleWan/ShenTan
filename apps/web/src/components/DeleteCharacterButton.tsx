@@ -9,7 +9,10 @@ interface DeleteCharacterButtonProps {
   characterName: string;
 }
 
-export default function DeleteCharacterButton({ characterId, characterName }: DeleteCharacterButtonProps) {
+export default function DeleteCharacterButton({
+  characterId,
+  characterName,
+}: DeleteCharacterButtonProps) {
   const router = useRouter();
   const [showConfirm, setShowConfirm] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -30,10 +33,7 @@ export default function DeleteCharacterButton({ characterId, characterName }: De
 
   return (
     <>
-      <button
-        className="btn-delete"
-        onClick={() => setShowConfirm(true)}
-      >
+      <button className="btn-delete" onClick={() => setShowConfirm(true)}>
         删除角色
       </button>
 

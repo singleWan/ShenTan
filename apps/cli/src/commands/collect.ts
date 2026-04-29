@@ -26,10 +26,14 @@ export async function collectCommand(
       ? `file:${resolve(process.env.DATABASE_PATH)}`
       : 'file:./data/shentan.db';
 
-  const characterType = (options.type === 'fictional' || options.type === 'fiction') ? 'fictional' : 'historical';
+  const characterType =
+    options.type === 'fictional' || options.type === 'fiction' ? 'fictional' : 'historical';
   const maxRounds = options.rounds ? parseInt(options.rounds, 10) : 5;
   const sourceList = options.source
-    ? options.source.split(/[,，]/).map(s => s.trim()).filter(s => s.length > 0)
+    ? options.source
+        .split(/[,，]/)
+        .map((s) => s.trim())
+        .filter((s) => s.length > 0)
     : undefined;
 
   if (options.daemon) {
@@ -77,22 +81,30 @@ export async function collectCommand(
       logPath: logWriter.logPath,
     });
 
-    const result = await runOrchestrator(db, {
-      characterName: name,
-      characterType: characterType as 'historical' | 'fictional',
-      source: sourceList,
-      maxExploreRounds: maxRounds,
-      aliasesInput: options.aliases,
-      onProgress: (p) => {
-        queries.updateCollectionTask(db, taskId, { progress: p }).catch(() => {});
+    const result = await runOrchestrator(
+      db,
+      {
+        characterName: name,
+        characterType: characterType as 'historical' | 'fictional',
+        source: sourceList,
+        maxExploreRounds: maxRounds,
+        aliasesInput: options.aliases,
+        onProgress: (p) => {
+          queries.updateCollectionTask(db, taskId, { progress: p }).catch(() => {});
+        },
+        signal: abortController.signal,
       },
-      signal: abortController.signal,
-    }, (msg) => {
-      logWriter.write(msg);
-    });
+      (msg) => {
+        logWriter.write(msg);
+      },
+    );
 
     // 更新任务状态
-    const taskStatus = abortController.signal.aborted ? 'cancelled' : (result.success ? 'completed' : 'failed');
+    const taskStatus = abortController.signal.aborted
+      ? 'cancelled'
+      : result.success
+        ? 'completed'
+        : 'failed';
     await queries.updateCollectionTask(db, taskId, {
       characterId: result.characterId,
       status: taskStatus,
@@ -119,7 +131,9 @@ export async function collectCommand(
     console.log(`  日志: ${logWriter.logPath}`);
     console.log('\n⏱ 各阶段耗时:');
     for (const stage of result.stages) {
-      console.log(`  ${stage.stage}: ${(stage.duration / 1000).toFixed(1)}s ${stage.success ? '✓' : '✗'}`);
+      console.log(
+        `  ${stage.stage}: ${(stage.duration / 1000).toFixed(1)}s ${stage.success ? '✓' : '✗'}`,
+      );
     }
   } finally {
     process.off('SIGINT', onSigint);
@@ -157,10 +171,7 @@ async function runDaemon(
   }
 
   // 构建参数
-  const args = [
-    '--import', 'tsx',
-    resolve(process.cwd(), 'scripts/agent-runner.ts'),
-  ];
+  const args = ['--import', 'tsx', resolve(process.cwd(), 'scripts/agent-runner.ts')];
 
   const child = fork(resolve(process.cwd(), 'scripts/agent-runner.ts'), [], {
     execArgv: ['--import', 'tsx'],

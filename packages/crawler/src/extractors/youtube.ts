@@ -22,24 +22,29 @@ export async function extractYouTube(page: Page): Promise<ScrapedContent | null>
 async function extractYouTubeVideo(page: Page): Promise<ScrapedContent | null> {
   try {
     // 等待视频描述展开
-    await page.waitForSelector('#title h1 yt-formatted-string, h1.ytd-watch-metadata', {
-      timeout: 5000,
-    }).catch(() => {});
+    await page
+      .waitForSelector('#title h1 yt-formatted-string, h1.ytd-watch-metadata', {
+        timeout: 5000,
+      })
+      .catch(() => {});
 
     return await page.evaluate(() => {
       // 视频标题
-      const titleEl = document.querySelector('#title h1 yt-formatted-string') ||
+      const titleEl =
+        document.querySelector('#title h1 yt-formatted-string') ||
         document.querySelector('h1.ytd-watch-metadata') ||
         document.querySelector('h1');
       const title = titleEl?.textContent?.trim() || '';
 
       // 频道名
-      const channelEl = document.querySelector('#upload-info ytd-channel-name a') ||
+      const channelEl =
+        document.querySelector('#upload-info ytd-channel-name a') ||
         document.querySelector('ytd-channel-name a');
       const channel = channelEl?.textContent?.trim() || '';
 
       // 视频描述
-      const descEl = document.querySelector('#description-inner') ||
+      const descEl =
+        document.querySelector('#description-inner') ||
         document.querySelector('#description .content');
       const desc = descEl ? (descEl as HTMLElement).innerText?.trim() : '';
 
@@ -76,7 +81,8 @@ async function extractYouTubeVideo(page: Page): Promise<ScrapedContent | null> {
 async function extractYouTubeChannel(page: Page): Promise<ScrapedContent | null> {
   try {
     return await page.evaluate(() => {
-      const channelNameEl = document.querySelector('#channel-name yt-formatted-string') ||
+      const channelNameEl =
+        document.querySelector('#channel-name yt-formatted-string') ||
         document.querySelector('ytd-channel-name');
       const name = channelNameEl?.textContent?.trim() || '';
 

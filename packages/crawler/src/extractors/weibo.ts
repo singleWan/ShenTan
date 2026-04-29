@@ -31,7 +31,8 @@ async function extractMobileWeibo(page: Page): Promise<ScrapedContent | null> {
       const content = (contentEl as HTMLElement).innerText?.trim() || '';
 
       // 提取用户名
-      const userEl = document.querySelector('.m-text-box .m-text-cut a') ||
+      const userEl =
+        document.querySelector('.m-text-box .m-text-cut a') ||
         document.querySelector('.weibo-top .m-text-cut');
       const username = userEl?.textContent?.trim() || '';
 
@@ -72,8 +73,8 @@ async function extractDesktopWeibo(page: Page): Promise<ScrapedContent | null> {
       const title = document.title || '微博';
       const content = (contentEl as HTMLElement).innerText?.trim() || '';
 
-      const userEl = document.querySelector('.W_fb .W_autocut') ||
-        document.querySelector('.name .W_autocut');
+      const userEl =
+        document.querySelector('.W_fb .W_autocut') || document.querySelector('.name .W_autocut');
       const username = userEl?.getAttribute('title') || userEl?.textContent?.trim() || '';
 
       const links: Array<{ text: string; href: string }> = [];

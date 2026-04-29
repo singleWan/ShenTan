@@ -10,9 +10,29 @@ export interface TaskOptions {
 
 export interface ExpandTaskOptions extends TaskOptions {
   mode: 'range' | 'around';
-  afterEvent?: { id: number; title: string; dateText?: string | null; dateSortable?: string | null; description?: string | null };
-  beforeEvent?: { id: number; title: string; dateText?: string | null; dateSortable?: string | null; description?: string | null };
-  centerEvent?: { id: number; title: string; dateText?: string | null; dateSortable?: string | null; description?: string | null; category?: string | null; importance?: number | null };
+  afterEvent?: {
+    id: number;
+    title: string;
+    dateText?: string | null;
+    dateSortable?: string | null;
+    description?: string | null;
+  };
+  beforeEvent?: {
+    id: number;
+    title: string;
+    dateText?: string | null;
+    dateSortable?: string | null;
+    description?: string | null;
+  };
+  centerEvent?: {
+    id: number;
+    title: string;
+    dateText?: string | null;
+    dateSortable?: string | null;
+    description?: string | null;
+    category?: string | null;
+    importance?: number | null;
+  };
 }
 
 export interface ReactionTaskOptions extends TaskOptions {

@@ -1,5 +1,10 @@
 import type { ExpandTaskOptions, ReactionTaskOptions, Task, TaskSSEData } from './types.js';
-import { createBgTask, updateBgTask, getActiveBgTasksFromDb, getBgTask } from '../task-manager/store';
+import {
+  createBgTask,
+  updateBgTask,
+  getActiveBgTasksFromDb,
+  getBgTask,
+} from '../task-manager/store';
 import { ProcessManager } from '../shared/process-manager';
 import { getDbPath } from '../shared/utils';
 
@@ -186,7 +191,8 @@ export async function recoverBgTasks() {
     const RECENT_THRESHOLD = 2 * 60 * 1000;
     for (const task of active) {
       if (pm.tasks.has(task.id)) continue;
-      if (task.updatedAt && Date.now() - new Date(task.updatedAt).getTime() < RECENT_THRESHOLD) continue;
+      if (task.updatedAt && Date.now() - new Date(task.updatedAt).getTime() < RECENT_THRESHOLD)
+        continue;
 
       updateBgTask(task.id, {
         status: 'interrupted',

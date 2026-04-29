@@ -16,7 +16,18 @@ function findMonorepoRoot(startDir: string): string {
 const MONOREPO_ROOT = findMonorepoRoot(resolve(process.cwd()));
 
 // 从 @shentan/core/schema 导入统一的 Schema 定义（单一数据源，不加载 libsql 驱动）
-export { characters, events, reactions, collectionTasks, backgroundTasks, crawlCache, characterRelations } from '@shentan/core/schema';
+export {
+  characters,
+  events,
+  reactions,
+  collectionTasks,
+  backgroundTasks,
+  crawlCache,
+  characterRelations,
+  tags,
+  characterTags,
+  auditLog,
+} from '@shentan/core/schema';
 
 // 建表 SQL（与 core/src/db/init.ts 保持同步）
 const CREATE_TABLES = `
@@ -143,12 +154,44 @@ CREATE INDEX IF NOT EXISTS character_relations_to_idx ON character_relations(to_
 const MIGRATIONS: Array<{ sql: string; postUpdate?: string }> = [
   { sql: `ALTER TABLE characters ADD COLUMN aliases TEXT;` },
   { sql: `ALTER TABLE characters ADD COLUMN image_url TEXT;` },
-  { sql: `ALTER TABLE events ADD COLUMN updated_at TEXT NOT NULL DEFAULT '1970-01-01T00:00:00Z';`, postUpdate: `UPDATE events SET updated_at = created_at;` },
+  {
+    sql: `ALTER TABLE events ADD COLUMN updated_at TEXT NOT NULL DEFAULT '1970-01-01T00:00:00Z';`,
+    postUpdate: `UPDATE events SET updated_at = created_at;`,
+  },
   { sql: `ALTER TABLE reactions ADD COLUMN status TEXT NOT NULL DEFAULT 'active';` },
   { sql: `ALTER TABLE reactions ADD COLUMN collection_id TEXT;` },
   { sql: `ALTER TABLE events ADD COLUMN review_status TEXT;` },
   { sql: `ALTER TABLE events ADD COLUMN duplicate_of INTEGER;` },
   { sql: `ALTER TABLE events ADD COLUMN merged_from_ids TEXT;` },
+  {
+    sql: `CREATE TABLE IF NOT EXISTS tags (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT NOT NULL UNIQUE,
+      color TEXT,
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    )`,
+  },
+  {
+    sql: `CREATE TABLE IF NOT EXISTS character_tags (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      character_id INTEGER NOT NULL REFERENCES characters(id),
+      tag_id INTEGER NOT NULL REFERENCES tags(id),
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    )`,
+  },
+  { sql: `CREATE INDEX IF NOT EXISTS character_tags_character_idx ON character_tags(character_id)` },
+  { sql: `CREATE INDEX IF NOT EXISTS character_tags_tag_idx ON character_tags(tag_id)` },
+  {
+    sql: `CREATE TABLE IF NOT EXISTS audit_log (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      action TEXT NOT NULL,
+      entity_type TEXT NOT NULL,
+      entity_id INTEGER,
+      details TEXT,
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    )`,
+  },
+  { sql: `CREATE INDEX IF NOT EXISTS audit_log_action_idx ON audit_log(action)` },
 ];
 
 let _db: ReturnType<typeof drizzle> | null = null;

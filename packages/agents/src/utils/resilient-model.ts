@@ -1,6 +1,11 @@
 import { wrapLanguageModel } from 'ai';
 import type { LanguageModel, LanguageModelMiddleware } from 'ai';
-import { withRetry, RequestThrottle, DEFAULT_RETRY_CONFIG, DEFAULT_THROTTLE_CONFIG } from './retry.js';
+import {
+  withRetry,
+  RequestThrottle,
+  DEFAULT_RETRY_CONFIG,
+  DEFAULT_THROTTLE_CONFIG,
+} from './retry.js';
 import type { RetryConfig, ThrottleConfig } from './retry.js';
 
 export interface ResilientModelOptions {
@@ -33,10 +38,11 @@ export function createResilientModel(
         retryConfig,
         (attempt, error, delay) => {
           const statusCode = (error as unknown as Record<string, unknown>)?.statusCode;
-          const reason = statusCode === 403 ? '访问受限'
-            : statusCode === 429 ? '请求限速'
-            : '服务端错误';
-          onLog?.(`[API] ${reason} (${statusCode})，第 ${attempt}/${retryConfig.maxRetries} 次重试（等待 ${Math.round(delay)}ms）: ${error.message}`);
+          const reason =
+            statusCode === 403 ? '访问受限' : statusCode === 429 ? '请求限速' : '服务端错误';
+          onLog?.(
+            `[API] ${reason} (${statusCode})，第 ${attempt}/${retryConfig.maxRetries} 次重试（等待 ${Math.round(delay)}ms）: ${error.message}`,
+          );
         },
       );
     },
@@ -46,12 +52,17 @@ export function createResilientModel(
         async () => doStream() as Promise<Awaited<ReturnType<typeof doStream>>>,
         retryConfig,
         (attempt, error, delay) => {
-          onLog?.(`[API] 流式请求失败，第 ${attempt}/${retryConfig.maxRetries} 次重试（等待 ${Math.round(delay)}ms）: ${error.message}`);
+          onLog?.(
+            `[API] 流式请求失败，第 ${attempt}/${retryConfig.maxRetries} 次重试（等待 ${Math.round(delay)}ms）: ${error.message}`,
+          );
         },
       );
     },
   };
 
   // createModel() 返回的是 LanguageModelV3 实例，符合 wrapLanguageModel 要求
-  return wrapLanguageModel({ model: baseModel as Parameters<typeof wrapLanguageModel>[0]['model'], middleware });
+  return wrapLanguageModel({
+    model: baseModel as Parameters<typeof wrapLanguageModel>[0]['model'],
+    middleware,
+  });
 }

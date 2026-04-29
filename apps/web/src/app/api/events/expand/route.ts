@@ -10,9 +10,29 @@ export async function POST(request: Request) {
     characterName?: string;
     characterAliases?: string;
     mode?: 'range' | 'around';
-    afterEvent?: { id: number; title: string; dateText?: string | null; dateSortable?: string | null; description?: string | null };
-    beforeEvent?: { id: number; title: string; dateText?: string | null; dateSortable?: string | null; description?: string | null };
-    centerEvent?: { id: number; title: string; dateText?: string | null; dateSortable?: string | null; description?: string | null; category?: string | null; importance?: number | null };
+    afterEvent?: {
+      id: number;
+      title: string;
+      dateText?: string | null;
+      dateSortable?: string | null;
+      description?: string | null;
+    };
+    beforeEvent?: {
+      id: number;
+      title: string;
+      dateText?: string | null;
+      dateSortable?: string | null;
+      description?: string | null;
+    };
+    centerEvent?: {
+      id: number;
+      title: string;
+      dateText?: string | null;
+      dateSortable?: string | null;
+      description?: string | null;
+      category?: string | null;
+      importance?: number | null;
+    };
   };
   try {
     body = await request.json();
@@ -70,12 +90,16 @@ export async function GET(request: Request) {
 
   if (dbTask.status === 'completed' && dbTask.result) {
     try {
-      events.push(`data: ${JSON.stringify({ type: 'complete', result: JSON.parse(dbTask.result) })}\n\n`);
+      events.push(
+        `data: ${JSON.stringify({ type: 'complete', result: JSON.parse(dbTask.result) })}\n\n`,
+      );
     } catch {
       events.push(`data: ${JSON.stringify({ type: 'complete', result: dbTask.result })}\n\n`);
     }
   } else if (dbTask.status === 'failed') {
-    events.push(`data: ${JSON.stringify({ type: 'error', message: dbTask.error || '任务失败' })}\n\n`);
+    events.push(
+      `data: ${JSON.stringify({ type: 'error', message: dbTask.error || '任务失败' })}\n\n`,
+    );
   } else if (dbTask.status === 'cancelled') {
     events.push(`data: ${JSON.stringify({ type: 'cancelled' })}\n\n`);
   } else {
@@ -95,12 +119,16 @@ export async function GET(request: Request) {
     headers: {
       'Content-Type': 'text/event-stream',
       'Cache-Control': 'no-cache',
-      'Connection': 'keep-alive',
+      Connection: 'keep-alive',
     },
   });
 }
 
-function createExpandSseResponse(task: NonNullable<ReturnType<typeof getTask>>, taskId: string, request: Request): Response {
+function createExpandSseResponse(
+  task: NonNullable<ReturnType<typeof getTask>>,
+  taskId: string,
+  request: Request,
+): Response {
   const encoder = new TextEncoder();
   const stream = new ReadableStream({
     start(controller) {
@@ -108,12 +136,16 @@ function createExpandSseResponse(task: NonNullable<ReturnType<typeof getTask>>, 
         controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: 'log', ...log })}\n\n`));
       }
       if (task.status === 'completed' && task.result) {
-        controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: 'complete', result: task.result })}\n\n`));
+        controller.enqueue(
+          encoder.encode(`data: ${JSON.stringify({ type: 'complete', result: task.result })}\n\n`),
+        );
         controller.close();
         return;
       }
       if (task.status === 'failed' && task.error) {
-        controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: 'error', message: task.error })}\n\n`));
+        controller.enqueue(
+          encoder.encode(`data: ${JSON.stringify({ type: 'error', message: task.error })}\n\n`),
+        );
         controller.close();
         return;
       }
@@ -144,7 +176,7 @@ function createExpandSseResponse(task: NonNullable<ReturnType<typeof getTask>>, 
     headers: {
       'Content-Type': 'text/event-stream',
       'Cache-Control': 'no-cache',
-      'Connection': 'keep-alive',
+      Connection: 'keep-alive',
     },
   });
 }

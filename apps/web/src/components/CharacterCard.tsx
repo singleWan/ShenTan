@@ -15,10 +15,19 @@ interface CharacterCardProps {
   imageUrl: string | null;
 }
 
-export default function CharacterCard({ id, name, type, source, status, imageUrl }: CharacterCardProps) {
+export default function CharacterCard({
+  id,
+  name,
+  type,
+  source,
+  status,
+  imageUrl,
+}: CharacterCardProps) {
   const router = useRouter();
   const imageSrc = imageUrl
-    ? imageUrl.startsWith('http') ? imageUrl : `/api/images/${imageUrl}`
+    ? imageUrl.startsWith('http')
+      ? imageUrl
+      : `/api/images/${imageUrl}`
     : null;
   const [showConfirm, setShowConfirm] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -51,7 +60,14 @@ export default function CharacterCard({ id, name, type, source, status, imageUrl
               <img src={imageSrc} alt={name} className="card-image" loading="lazy" />
             ) : (
               <div className="card-image-placeholder">
-                <svg viewBox="0 0 24 24" width="32" height="32" fill="none" stroke="currentColor" strokeWidth="1.5">
+                <svg
+                  viewBox="0 0 24 24"
+                  width="32"
+                  height="32"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.5"
+                >
                   <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
                   <circle cx="12" cy="7" r="4" />
                 </svg>
@@ -65,11 +81,7 @@ export default function CharacterCard({ id, name, type, source, status, imageUrl
                 <span className="badge-dot" />
                 {statusLabel(status)}
               </span>
-              <button
-                className="card-delete-btn"
-                onClick={handleDelete}
-                title="删除角色"
-              >
+              <button className="card-delete-btn" onClick={handleDelete} title="删除角色">
                 删除
               </button>
             </div>

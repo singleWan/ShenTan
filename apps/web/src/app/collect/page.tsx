@@ -31,6 +31,7 @@ type PageState = 'form' | 'collecting' | 'done';
 
 export default function CollectPage() {
   const [state, setState] = useState<PageState>('form');
+  const [existingId, setExistingId] = useState<number | null>(null);
   const [name, setName] = useState('');
   const [type, setType] = useState<'historical' | 'fictional'>('historical');
   const [sourceTags, setSourceTags] = useState<string[]>([]);
@@ -49,6 +50,17 @@ export default function CollectPage() {
   const startTimeRef = useRef<number>(0);
   const timerRef = useRef<ReturnType<typeof setInterval>>(undefined);
 
+  // 从 URL 参数读取 existingId、name、type
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const eid = params.get('existingId');
+    const n = params.get('name');
+    const t = params.get('type');
+    if (eid) setExistingId(Number(eid));
+    if (n) setName(n);
+    if (t === 'fictional') setType('fictional');
+  }, []);
+
   useEffect(() => {
     if (logContainerRef.current) {
       logContainerRef.current.scrollTop = logContainerRef.current.scrollHeight;
@@ -66,55 +78,67 @@ export default function CollectPage() {
     };
   }, [state]);
 
-  const addAliasTag = useCallback((tag: string) => {
-    const trimmed = tag.trim();
-    if (trimmed && !aliasTags.includes(trimmed)) {
-      setAliasTags(prev => [...prev, trimmed]);
-    }
-  }, [aliasTags]);
+  const addAliasTag = useCallback(
+    (tag: string) => {
+      const trimmed = tag.trim();
+      if (trimmed && !aliasTags.includes(trimmed)) {
+        setAliasTags((prev) => [...prev, trimmed]);
+      }
+    },
+    [aliasTags],
+  );
 
   const removeAliasTag = useCallback((index: number) => {
-    setAliasTags(prev => prev.filter((_, i) => i !== index));
+    setAliasTags((prev) => prev.filter((_, i) => i !== index));
   }, []);
 
-  const handleAliasKeyDown = useCallback((e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter' || e.key === ',') {
-      e.preventDefault();
-      const value = aliasInput.replace(/[,，]/g, '').trim();
-      if (value) {
-        addAliasTag(value);
-        setAliasInput('');
+  const handleAliasKeyDown = useCallback(
+    (e: React.KeyboardEvent<HTMLInputElement>) => {
+      if (e.key === 'Enter' || e.key === ',') {
+        e.preventDefault();
+        const value = aliasInput.replace(/[,，]/g, '').trim();
+        if (value) {
+          addAliasTag(value);
+          setAliasInput('');
+        }
       }
-    }
-    if (e.key === 'Backspace' && aliasInput === '' && aliasTags.length > 0) {
-      removeAliasTag(aliasTags.length - 1);
-    }
-  }, [aliasInput, aliasTags, addAliasTag, removeAliasTag]);
+      if (e.key === 'Backspace' && aliasInput === '' && aliasTags.length > 0) {
+        removeAliasTag(aliasTags.length - 1);
+      }
+    },
+    [aliasInput, aliasTags, addAliasTag, removeAliasTag],
+  );
 
-  const addSourceTag = useCallback((tag: string) => {
-    const trimmed = tag.trim();
-    if (trimmed && !sourceTags.includes(trimmed)) {
-      setSourceTags(prev => [...prev, trimmed]);
-    }
-  }, [sourceTags]);
+  const addSourceTag = useCallback(
+    (tag: string) => {
+      const trimmed = tag.trim();
+      if (trimmed && !sourceTags.includes(trimmed)) {
+        setSourceTags((prev) => [...prev, trimmed]);
+      }
+    },
+    [sourceTags],
+  );
 
   const removeSourceTag = useCallback((index: number) => {
-    setSourceTags(prev => prev.filter((_, i) => i !== index));
+    setSourceTags((prev) => prev.filter((_, i) => i !== index));
   }, []);
 
-  const handleSourceKeyDown = useCallback((e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter' || e.key === ',') {
-      e.preventDefault();
-      const value = sourceInput.replace(/[,，]/g, '').trim();
-      if (value) {
-        addSourceTag(value);
-        setSourceInput('');
+  const handleSourceKeyDown = useCallback(
+    (e: React.KeyboardEvent<HTMLInputElement>) => {
+      if (e.key === 'Enter' || e.key === ',') {
+        e.preventDefault();
+        const value = sourceInput.replace(/[,，]/g, '').trim();
+        if (value) {
+          addSourceTag(value);
+          setSourceInput('');
+        }
       }
-    }
-    if (e.key === 'Backspace' && sourceInput === '' && sourceTags.length > 0) {
-      removeSourceTag(sourceTags.length - 1);
-    }
-  }, [sourceInput, sourceTags, addSourceTag, removeSourceTag]);
+      if (e.key === 'Backspace' && sourceInput === '' && sourceTags.length > 0) {
+        removeSourceTag(sourceTags.length - 1);
+      }
+    },
+    [sourceInput, sourceTags, addSourceTag, removeSourceTag],
+  );
 
   const handleSSE = useCallback((id: string) => {
     const es = new EventSource(`/api/collect?taskId=${id}`);
@@ -174,7 +198,7 @@ export default function CollectPage() {
     // 处理输入框中残留的别名
     const allAliases = [...aliasTags];
     if (aliasInput.trim()) {
-      aliasInput.split(/[,，]/).forEach(s => {
+      aliasInput.split(/[,，]/).forEach((s) => {
         const trimmed = s.trim();
         if (trimmed && !allAliases.includes(trimmed)) allAliases.push(trimmed);
       });
@@ -183,7 +207,7 @@ export default function CollectPage() {
     // 处理输入框中残留的来源
     const allSources = [...sourceTags];
     if (sourceInput.trim()) {
-      sourceInput.split(/[,，]/).forEach(s => {
+      sourceInput.split(/[,，]/).forEach((s) => {
         const trimmed = s.trim();
         if (trimmed && !allSources.includes(trimmed)) allSources.push(trimmed);
       });
@@ -198,6 +222,7 @@ export default function CollectPage() {
         source: allSources.length > 0 ? allSources : undefined,
         maxRounds: rounds,
         aliases: allAliases.length > 0 ? allAliases.join(',') : undefined,
+        existingCharacterId: existingId ?? undefined,
       }),
     });
 
@@ -254,8 +279,12 @@ export default function CollectPage() {
   return (
     <div className="container">
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <Link href="/" className="back-link">← 返回</Link>
-        <Link href="/tasks" className="back-link">任务管理 →</Link>
+        <Link href="/" className="back-link">
+          ← 返回
+        </Link>
+        <Link href="/tasks" className="back-link">
+          任务管理 →
+        </Link>
       </div>
 
       <div className="header">
@@ -280,11 +309,23 @@ export default function CollectPage() {
             <label>角色类型</label>
             <div className="radio-group">
               <label className={`radio-btn ${type === 'historical' ? 'active' : ''}`}>
-                <input type="radio" name="type" value="historical" checked={type === 'historical'} onChange={() => setType('historical')} />
+                <input
+                  type="radio"
+                  name="type"
+                  value="historical"
+                  checked={type === 'historical'}
+                  onChange={() => setType('historical')}
+                />
                 历史人物
               </label>
               <label className={`radio-btn ${type === 'fictional' ? 'active' : ''}`}>
-                <input type="radio" name="type" value="fictional" checked={type === 'fictional'} onChange={() => setType('fictional')} />
+                <input
+                  type="radio"
+                  name="type"
+                  value="fictional"
+                  checked={type === 'fictional'}
+                  onChange={() => setType('fictional')}
+                />
                 虚构角色
               </label>
             </div>
@@ -297,7 +338,13 @@ export default function CollectPage() {
                 {sourceTags.map((tag, i) => (
                   <span key={i} className="alias-tag">
                     {tag}
-                    <button type="button" className="alias-tag-remove" onClick={() => removeSourceTag(i)}>×</button>
+                    <button
+                      type="button"
+                      className="alias-tag-remove"
+                      onClick={() => removeSourceTag(i)}
+                    >
+                      ×
+                    </button>
                   </span>
                 ))}
                 <input
@@ -311,7 +358,11 @@ export default function CollectPage() {
                       setSourceInput('');
                     }
                   }}
-                  placeholder={sourceTags.length === 0 ? '输入来源作品后回车添加，如：哈利波特系列、三国演义...' : '继续输入...'}
+                  placeholder={
+                    sourceTags.length === 0
+                      ? '输入来源作品后回车添加，如：哈利波特系列、三国演义...'
+                      : '继续输入...'
+                  }
                   className="alias-input"
                 />
               </div>
@@ -325,7 +376,13 @@ export default function CollectPage() {
               {aliasTags.map((tag, i) => (
                 <span key={i} className="alias-tag">
                   {tag}
-                  <button type="button" className="alias-tag-remove" onClick={() => removeAliasTag(i)}>×</button>
+                  <button
+                    type="button"
+                    className="alias-tag-remove"
+                    onClick={() => removeAliasTag(i)}
+                  >
+                    ×
+                  </button>
                 </span>
               ))}
               <input
@@ -339,7 +396,11 @@ export default function CollectPage() {
                     setAliasInput('');
                   }
                 }}
-                placeholder={aliasTags.length === 0 ? '输入别名后回车添加，如：川普、Trump、川建国' : '继续输入...'}
+                placeholder={
+                  aliasTags.length === 0
+                    ? '输入别名后回车添加，如：川普、Trump、川建国'
+                    : '继续输入...'
+                }
                 className="alias-input"
               />
             </div>
@@ -376,35 +437,54 @@ export default function CollectPage() {
             <h2>正在收集: {name}</h2>
             <div className="progress-meta">
               <span className="timer">{formatTime(elapsed)}</span>
-              <button onClick={handleCancel} className="btn-cancel">取消</button>
+              <button onClick={handleCancel} className="btn-cancel">
+                取消
+              </button>
             </div>
           </div>
 
           {progress && (
             <div className="progress-bar-container">
-              <div className="progress-bar" style={{ width: `${Math.round(((progress.stageIndex + 1) / progress.totalStages) * 100)}%` }}></div>
+              <div
+                className="progress-bar"
+                style={{
+                  width: `${Math.round(((progress.stageIndex + 1) / progress.totalStages) * 100)}%`,
+                }}
+              ></div>
               <div className="progress-info">
                 <span>{progress.message || progress.stage}</span>
                 {progress.eventsCount !== undefined && <span>事件: {progress.eventsCount}</span>}
-                {progress.roundIndex !== undefined && <span>轮次: {progress.roundIndex}/{progress.maxRounds}</span>}
+                {progress.roundIndex !== undefined && (
+                  <span>
+                    轮次: {progress.roundIndex}/{progress.maxRounds}
+                  </span>
+                )}
               </div>
             </div>
           )}
 
           <div className="progress-stages">
-            <div className={`stage ${progress?.stage === 'biographer' || logs.some(l => l.message.includes('[Biographer]')) ? 'active' : ''}`}>
+            <div
+              className={`stage ${progress?.stage === 'biographer' || logs.some((l) => l.message.includes('[Biographer]')) ? 'active' : ''}`}
+            >
               <span className="stage-dot"></span>
               生平采集
             </div>
-            <div className={`stage ${progress?.stage === 'event-explorer' || logs.some(l => l.message.includes('[EventExplorer]')) ? 'active' : ''}`}>
+            <div
+              className={`stage ${progress?.stage === 'event-explorer' || logs.some((l) => l.message.includes('[EventExplorer]')) ? 'active' : ''}`}
+            >
               <span className="stage-dot"></span>
               事件拓展
             </div>
-            <div className={`stage ${progress?.stage === 'statement-collector' || logs.some(l => l.message.includes('[StatementCollector]')) ? 'active' : ''}`}>
+            <div
+              className={`stage ${progress?.stage === 'statement-collector' || logs.some((l) => l.message.includes('[StatementCollector]')) ? 'active' : ''}`}
+            >
               <span className="stage-dot"></span>
               发言收集
             </div>
-            <div className={`stage ${progress?.stage === 'reaction-collector' || logs.some(l => l.message.includes('[ReactionCollector]')) ? 'active' : ''}`}>
+            <div
+              className={`stage ${progress?.stage === 'reaction-collector' || logs.some((l) => l.message.includes('[ReactionCollector]')) ? 'active' : ''}`}
+            >
               <span className="stage-dot"></span>
               反应收集
             </div>
@@ -424,9 +504,7 @@ export default function CollectPage() {
                   <span className="log-msg">{log.message}</span>
                 </div>
               ))}
-              {logs.length === 0 && (
-                <div className="log-line muted">等待 Agent 启动...</div>
-              )}
+              {logs.length === 0 && <div className="log-line muted">等待 Agent 启动...</div>}
             </div>
           </div>
         </div>
@@ -439,38 +517,42 @@ export default function CollectPage() {
               <h2>收集失败</h2>
               <p>{error}</p>
             </div>
-          ) : result && (
-            <div className="result-success">
-              <h2 className="glitch">收集完成</h2>
-              <div className="result-stats">
-                <div className="stat">
-                  <div className="stat-value">{result.totalEvents}</div>
-                  <div className="stat-label">事件</div>
-                </div>
-                <div className="stat">
-                  <div className="stat-value">{result.totalReactions}</div>
-                  <div className="stat-label">反应</div>
-                </div>
-                <div className="stat">
-                  <div className="stat-value">{formatTime(elapsed)}</div>
-                  <div className="stat-label">耗时</div>
-                </div>
-              </div>
-              <div className="result-stages">
-                {result.stages.map((s, i) => (
-                  <div key={i} className={`result-stage ${s.success ? 'ok' : 'fail'}`}>
-                    <span>{s.stage}</span>
-                    <span>{(s.duration / 1000).toFixed(1)}s {s.success ? '✓' : '✗'}</span>
-                    {!s.success && s.message && <div className="stage-error">{s.message}</div>}
+          ) : (
+            result && (
+              <div className="result-success">
+                <h2 className="glitch">收集完成</h2>
+                <div className="result-stats">
+                  <div className="stat">
+                    <div className="stat-value">{result.totalEvents}</div>
+                    <div className="stat-label">事件</div>
                   </div>
-                ))}
+                  <div className="stat">
+                    <div className="stat-value">{result.totalReactions}</div>
+                    <div className="stat-label">反应</div>
+                  </div>
+                  <div className="stat">
+                    <div className="stat-value">{formatTime(elapsed)}</div>
+                    <div className="stat-label">耗时</div>
+                  </div>
+                </div>
+                <div className="result-stages">
+                  {result.stages.map((s, i) => (
+                    <div key={i} className={`result-stage ${s.success ? 'ok' : 'fail'}`}>
+                      <span>{s.stage}</span>
+                      <span>
+                        {(s.duration / 1000).toFixed(1)}s {s.success ? '✓' : '✗'}
+                      </span>
+                      {!s.success && s.message && <div className="stage-error">{s.message}</div>}
+                    </div>
+                  ))}
+                </div>
+                {result.success && (
+                  <Link href={`/characters/${result.characterId}`} className="btn-primary">
+                    查看角色
+                  </Link>
+                )}
               </div>
-              {result.success && (
-                <Link href={`/characters/${result.characterId}`} className="btn-primary">
-                  查看角色
-                </Link>
-              )}
-            </div>
+            )
           )}
           <button onClick={handleReset} className="btn-secondary" style={{ marginTop: '1rem' }}>
             收集新角色

@@ -58,9 +58,7 @@ export async function exportCommand(
     }
 
     const format = options.format ?? 'json';
-    const outputDir = options.output
-      ? resolve(options.output)
-      : resolve('./output');
+    const outputDir = options.output ? resolve(options.output) : resolve('./output');
 
     mkdirSync(outputDir, { recursive: true });
 
@@ -74,6 +72,11 @@ export async function exportCommand(
       const outputPath = resolve(outputDir, `${safeName}.md`);
       const md = generateMarkdown(data);
       writeFileSync(outputPath, md, 'utf-8');
+      console.log(`导出完成: ${outputPath}`);
+    } else if (format === 'csv') {
+      const outputPath = resolve(outputDir, `${safeName}.csv`);
+      const csv = generateCSV(data);
+      writeFileSync(outputPath, csv, 'utf-8');
       console.log(`导出完成: ${outputPath}`);
     }
 
@@ -141,4 +144,63 @@ function generateMarkdown(data: Awaited<ReturnType<typeof queries.exportCharacte
   lines.push(`*总事件: ${data!.metadata.totalEvents} | 总反应: ${data!.metadata.totalReactions}*`);
 
   return lines.join('\n');
+}
+
+function escapeCSV(value: string | null | undefined): string {
+  if (value === null || value === undefined) return '';
+  const str = String(value);
+  if (str.includes(',') || str.includes('"') || str.includes('\n')) {
+    return `"${str.replace(/"/g, '""')}"`;
+  }
+  return str;
+}
+
+function generateCSV(data: Awaited<ReturnType<typeof queries.exportCharacter>>): string {
+  const header = [
+    '事件ID',
+    '日期',
+    '标题',
+    '描述',
+    '分类',
+    '重要度',
+    '内容',
+    '平台',
+    '发言者',
+    '反应方',
+    '反应方类型',
+    '反应内容',
+    '态度',
+  ].join(',');
+
+  const rows: string[] = [header];
+
+  for (const event of data!.timeline) {
+    const baseCols = [
+      escapeCSV(String(event.id)),
+      escapeCSV(event.date),
+      escapeCSV(event.title),
+      escapeCSV(event.description),
+      escapeCSV(CATEGORY_LABELS[event.category] ?? event.category),
+      escapeCSV(String(event.importance)),
+      escapeCSV(event.content),
+      escapeCSV(event.platform),
+      escapeCSV(event.authorHandle),
+    ].join(',');
+
+    if (event.reactions.length === 0) {
+      rows.push(baseCols);
+    } else {
+      for (const r of event.reactions) {
+        const reactionCols = [
+          escapeCSV(r.reactor),
+          escapeCSV(r.reactorType),
+          escapeCSV(r.reactionText),
+          escapeCSV(r.sentiment),
+        ].join(',');
+        rows.push(`${baseCols},${reactionCols}`);
+      }
+    }
+  }
+
+  return '﻿' + rows.join('\n');
 }

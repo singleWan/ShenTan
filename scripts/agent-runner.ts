@@ -18,9 +18,7 @@ interface StartPayload {
   existingCharacterId?: number;
 }
 
-type IPCMessage =
-  | { type: 'start'; payload: StartPayload }
-  | { type: 'cancel' };
+type IPCMessage = { type: 'start'; payload: StartPayload } | { type: 'cancel' };
 
 function send(msg: { type: string; payload?: unknown }) {
   if (process.send) {
@@ -37,7 +35,17 @@ process.on('message', async (msg: IPCMessage) => {
   }
 
   if (msg.type === 'start') {
-    const { characterName, characterType, source, maxRounds, aliases, dbPath, logDir, taskId, existingCharacterId } = msg.payload;
+    const {
+      characterName,
+      characterType,
+      source,
+      maxRounds,
+      aliases,
+      dbPath,
+      logDir,
+      taskId,
+      existingCharacterId,
+    } = msg.payload;
 
     // 创建文件日志
     const logId = taskId ?? `${Date.now()}`;
@@ -59,18 +67,22 @@ process.on('message', async (msg: IPCMessage) => {
       send({ type: 'status', payload: { status: 'running' } });
 
       const db = await initDatabase(dbPath);
-      const result: OrchestratorResult = await runOrchestrator(db, {
-        characterName,
-        characterType,
-        source,
-        maxExploreRounds: maxRounds ?? 5,
-        aliasesInput: aliases,
-        existingCharacterId,
-        onProgress: (progress) => {
-          send({ type: 'progress', payload: progress });
+      const result: OrchestratorResult = await runOrchestrator(
+        db,
+        {
+          characterName,
+          characterType,
+          source,
+          maxExploreRounds: maxRounds ?? 5,
+          aliasesInput: aliases,
+          existingCharacterId,
+          onProgress: (progress) => {
+            send({ type: 'progress', payload: progress });
+          },
+          signal: abortController.signal,
         },
-        signal: abortController.signal,
-      }, onLog);
+        onLog,
+      );
 
       logWriter?.write(`收集完成: 事件 ${result.totalEvents}, 反应 ${result.totalReactions}`);
       send({ type: 'complete', payload: result });

@@ -82,13 +82,16 @@ export function startCollection(options: CollectOptions): { taskId: string; erro
       dbPath: getDbPath(),
       logDir: getLogDir(),
       taskId,
+      existingCharacterId: options.existingCharacterId,
     },
   });
 
   return { taskId };
 }
 
-export async function resumeCollection(taskId: string): Promise<{ taskId: string; error?: string }> {
+export async function resumeCollection(
+  taskId: string,
+): Promise<{ taskId: string; error?: string }> {
   const err = pm.checkConcurrency();
   if (err) return { taskId: '', error: err };
 
@@ -134,7 +137,12 @@ export function getTask(taskId: string): CollectTask | undefined {
   return pm.tasks.get(taskId);
 }
 
-export function getAllTasks(): Array<{ id: string; characterName: string; status: string; error?: string }> {
+export function getAllTasks(): Array<{
+  id: string;
+  characterName: string;
+  status: string;
+  error?: string;
+}> {
   return Array.from(pm.tasks.values()).map((t) => ({
     id: t.id,
     characterName: t.characterName,
@@ -164,7 +172,8 @@ export async function recoverTasks() {
     const RECENT_THRESHOLD = 2 * 60 * 1000;
     for (const task of active) {
       if (pm.tasks.has(task.id)) continue;
-      if (task.updatedAt && Date.now() - new Date(task.updatedAt).getTime() < RECENT_THRESHOLD) continue;
+      if (task.updatedAt && Date.now() - new Date(task.updatedAt).getTime() < RECENT_THRESHOLD)
+        continue;
 
       await updateTaskInDb(task.id, {
         status: 'interrupted',

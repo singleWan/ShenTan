@@ -17,7 +17,9 @@ function guessExtension(url: string, contentType?: string): string {
     const pathname = new URL(url).pathname;
     const ext = extname(pathname).toLowerCase().split('?')[0];
     if (ext && IMAGE_EXTENSIONS.has(ext)) return ext;
-  } catch { /* ignore */ }
+  } catch {
+    /* ignore */
+  }
 
   return '.jpg';
 }

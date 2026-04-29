@@ -12,8 +12,11 @@ export default async function GraphPage() {
   }
 
   // 构建邻接表用于渲染
-  const nodeMap = new Map(graph.nodes.map(n => [n.id, n.name]));
-  const relationsByNode = new Map<number, Array<{ target: number; type: string; description: string | null }>>();
+  const nodeMap = new Map(graph.nodes.map((n) => [n.id, n.name]));
+  const relationsByNode = new Map<
+    number,
+    Array<{ target: number; type: string; description: string | null }>
+  >();
 
   for (const edge of graph.edges) {
     const list = relationsByNode.get(edge.from) ?? [];
@@ -22,14 +25,22 @@ export default async function GraphPage() {
   }
 
   const relationTypeLabels: Record<string, string> = {
-    ally: '盟友', enemy: '敌人', family: '家人', colleague: '同事',
-    rival: '对手', mentor: '导师', friend: '朋友', other: '其他',
+    ally: '盟友',
+    enemy: '敌人',
+    family: '家人',
+    colleague: '同事',
+    rival: '对手',
+    mentor: '导师',
+    friend: '朋友',
+    other: '其他',
   };
 
   return (
     <div className="container">
       <div className="header">
-        <Link href="/" className="back-link">&larr; 返回首页</Link>
+        <Link href="/" className="back-link">
+          &larr; 返回首页
+        </Link>
         <h1>角色关系网络</h1>
         <p className="header-subtitle">
           {graph.nodes.length} 个角色, {graph.edges.length} 条关系
@@ -47,7 +58,7 @@ export default async function GraphPage() {
           <div className="relation-nodes-grid">
             {graph.nodes.map((node) => {
               const outgoing = relationsByNode.get(node.id) ?? [];
-              const incoming = graph.edges.filter(e => e.to === node.id);
+              const incoming = graph.edges.filter((e) => e.to === node.id);
               if (outgoing.length === 0 && incoming.length === 0) return null;
 
               return (
@@ -65,7 +76,9 @@ export default async function GraphPage() {
                         <Link href={`/characters/${rel.target}`} className="relation-target-name">
                           {nodeMap.get(rel.target) ?? '未知'}
                         </Link>
-                        <span className="relation-type-badge">{relationTypeLabels[rel.type] ?? rel.type}</span>
+                        <span className="relation-type-badge">
+                          {relationTypeLabels[rel.type] ?? rel.type}
+                        </span>
                         {rel.description && (
                           <span className="relation-desc">{rel.description}</span>
                         )}
@@ -77,7 +90,9 @@ export default async function GraphPage() {
                         <Link href={`/characters/${rel.from}`} className="relation-target-name">
                           {nodeMap.get(rel.from) ?? '未知'}
                         </Link>
-                        <span className="relation-type-badge">{relationTypeLabels[rel.type] ?? rel.type}</span>
+                        <span className="relation-type-badge">
+                          {relationTypeLabels[rel.type] ?? rel.type}
+                        </span>
                       </div>
                     ))}
                   </div>

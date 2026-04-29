@@ -9,17 +9,22 @@ import { extractYouTube } from './youtube.js';
 
 // 有专用提取器的平台集合
 const PLATFORMS_WITH_EXTRACTOR: Set<SocialPlatform> = new Set([
-  'weibo', 'zhihu', 'reddit', 'twitter', 'youtube',
+  'weibo',
+  'zhihu',
+  'reddit',
+  'twitter',
+  'youtube',
 ]);
 
 // 提取器函数映射
-const EXTRACTORS: Partial<Record<SocialPlatform, (page: Page) => Promise<ScrapedContent | null>>> = {
-  weibo: extractWeibo,
-  zhihu: extractZhihu,
-  reddit: extractReddit,
-  twitter: extractTwitter,
-  youtube: extractYouTube,
-};
+const EXTRACTORS: Partial<Record<SocialPlatform, (page: Page) => Promise<ScrapedContent | null>>> =
+  {
+    weibo: extractWeibo,
+    zhihu: extractZhihu,
+    reddit: extractReddit,
+    twitter: extractTwitter,
+    youtube: extractYouTube,
+  };
 
 // 根据平台调用对应的提取器
 export async function extractByPlatform(

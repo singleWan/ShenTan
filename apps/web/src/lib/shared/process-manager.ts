@@ -49,7 +49,11 @@ export class ProcessManager<TTask extends ManagedTask> {
     const task = this.tasks.get(taskId);
     if (!task) return;
     task.subscribers.forEach((cb) => {
-      try { cb(data); } catch { /* subscriber disconnected */ }
+      try {
+        cb(data);
+      } catch {
+        /* subscriber disconnected */
+      }
     });
   }
 

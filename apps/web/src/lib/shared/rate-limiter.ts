@@ -20,7 +20,7 @@ function cleanup(key: string, windowMs: number) {
   const entry = windows.get(key);
   if (!entry) return;
   const cutoff = Date.now() - windowMs;
-  entry.timestamps = entry.timestamps.filter(t => t > cutoff);
+  entry.timestamps = entry.timestamps.filter((t) => t > cutoff);
   if (entry.timestamps.length === 0) windows.delete(key);
 }
 
@@ -41,7 +41,7 @@ export function checkRateLimit(key: string, limit: number, windowMs: number): Ra
 
   const now = Date.now();
   const cutoff = now - windowMs;
-  const recentRequests = entry.timestamps.filter(t => t > cutoff);
+  const recentRequests = entry.timestamps.filter((t) => t > cutoff);
 
   if (recentRequests.length >= limit) {
     const oldestInWindow = recentRequests[0]!;

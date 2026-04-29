@@ -1,6 +1,6 @@
 import { eq, and, gte, desc, sql, like, or } from 'drizzle-orm';
 import type { Database } from './connection.js';
-import { characters, events, reactions, collectionTasks } from './schema.js';
+import { characters, events, reactions, collectionTasks, tags, characterTags } from './schema.js';
 import type {
   CharacterType,
   EventCategory,
@@ -20,23 +20,31 @@ export function parseSource(raw: string | null): string[] | null {
   try {
     const parsed = JSON.parse(raw);
     if (Array.isArray(parsed)) return parsed;
-  } catch { /* 旧数据：纯字符串 */ }
+  } catch {
+    /* 旧数据：纯字符串 */
+  }
   return [raw];
 }
 
-export async function createCharacter(db: Database, input: {
-  name: string;
-  type: CharacterType;
-  source?: string[];
-  description?: string;
-}) {
-  const result = await db.insert(characters).values({
-    name: input.name,
-    type: input.type,
-    source: input.source ? JSON.stringify(input.source) : null,
-    description: input.description ?? null,
-    status: 'pending',
-  }).returning();
+export async function createCharacter(
+  db: Database,
+  input: {
+    name: string;
+    type: CharacterType;
+    source?: string[];
+    description?: string;
+  },
+) {
+  const result = await db
+    .insert(characters)
+    .values({
+      name: input.name,
+      type: input.type,
+      source: input.source ? JSON.stringify(input.source) : null,
+      description: input.description ?? null,
+      status: 'pending',
+    })
+    .returning();
   return result[0]!;
 }
 
@@ -51,22 +59,34 @@ export async function getCharacterByName(db: Database, name: string) {
 }
 
 export async function updateCharacterStatus(db: Database, id: number, status: string) {
-  await db.update(characters).set({ status, updatedAt: new Date().toISOString() }).where(eq(characters.id, id));
+  await db
+    .update(characters)
+    .set({ status, updatedAt: new Date().toISOString() })
+    .where(eq(characters.id, id));
 }
 
 export async function updateCharacterDescription(db: Database, id: number, description: string) {
-  await db.update(characters).set({ description, updatedAt: new Date().toISOString() }).where(eq(characters.id, id));
+  await db
+    .update(characters)
+    .set({ description, updatedAt: new Date().toISOString() })
+    .where(eq(characters.id, id));
 }
 
 export async function updateCharacterImageUrl(db: Database, id: number, imageUrl: string) {
-  await db.update(characters).set({ imageUrl, updatedAt: new Date().toISOString() }).where(eq(characters.id, id));
+  await db
+    .update(characters)
+    .set({ imageUrl, updatedAt: new Date().toISOString() })
+    .where(eq(characters.id, id));
 }
 
 export async function updateCharacterAliases(db: Database, id: number, aliases: CharacterAlias[]) {
-  await db.update(characters).set({
-    aliases: JSON.stringify(aliases),
-    updatedAt: new Date().toISOString(),
-  }).where(eq(characters.id, id));
+  await db
+    .update(characters)
+    .set({
+      aliases: JSON.stringify(aliases),
+      updatedAt: new Date().toISOString(),
+    })
+    .where(eq(characters.id, id));
 }
 
 export async function listCharacters(db: Database) {
@@ -75,7 +95,9 @@ export async function listCharacters(db: Database) {
 
 // 去重工具函数
 function normalizeText(text: string): string {
-  return text.toLowerCase().replace(/[\s　.,;:!?，。；：！？、\-—–()（）\[\]【】《》""''"']/g, '');
+  return text
+    .toLowerCase()
+    .replace(/[\s\u3000.,;:!?，。；：！？、\-—–()（）[\]【】《》""''"']/g, '');
 }
 
 function jaccardSimilarity(a: string, b: string): number {
@@ -97,9 +119,10 @@ function levenshteinRatio(a: string, b: string): number {
   for (let j = 0; j <= a.length; j++) matrix[0][j] = j;
   for (let i = 1; i <= b.length; i++) {
     for (let j = 1; j <= a.length; j++) {
-      matrix[i][j] = b[i - 1] === a[j - 1]
-        ? matrix[i - 1][j - 1]
-        : Math.min(matrix[i - 1][j - 1] + 1, matrix[i][j - 1] + 1, matrix[i - 1][j] + 1);
+      matrix[i][j] =
+        b[i - 1] === a[j - 1]
+          ? matrix[i - 1][j - 1]
+          : Math.min(matrix[i - 1][j - 1] + 1, matrix[i][j - 1] + 1, matrix[i - 1][j] + 1);
     }
   }
   const maxLen = Math.max(a.length, b.length);
@@ -139,34 +162,43 @@ function checkDuplicate(
 }
 
 // Event 查询
-export async function saveEvents(db: Database, input: {
-  characterId: number;
-  events: Array<{
-    parentEventId?: number;
-    title: string;
-    description?: string;
-    dateText?: string;
-    dateSortable?: string;
-    category?: string;
-    content?: string;
-    platform?: string;
-    authorHandle?: string;
-    sourceUrl?: string;
-    sourceTitle?: string;
-    importance?: number;
-  }>;
-}) {
+export async function saveEvents(
+  db: Database,
+  input: {
+    characterId: number;
+    events: Array<{
+      parentEventId?: number;
+      title: string;
+      description?: string;
+      dateText?: string;
+      dateSortable?: string;
+      category?: string;
+      content?: string;
+      platform?: string;
+      authorHandle?: string;
+      sourceUrl?: string;
+      sourceTitle?: string;
+      importance?: number;
+    }>;
+  },
+) {
   // 查询角色类型（用于日期规范化策略选择）
-  const character = await db.select({ type: characters.type })
-    .from(characters).where(eq(characters.id, input.characterId)).limit(1);
+  const character = await db
+    .select({ type: characters.type })
+    .from(characters)
+    .where(eq(characters.id, input.characterId))
+    .limit(1);
   const characterType = character[0]?.type ?? 'historical';
 
   // 获取已有事件用于去重
-  const existingEvents = await db.select({
-    title: events.title,
-    description: events.description,
-    dateSortable: events.dateSortable,
-  }).from(events).where(eq(events.characterId, input.characterId));
+  const existingEvents = await db
+    .select({
+      title: events.title,
+      description: events.description,
+      dateSortable: events.dateSortable,
+    })
+    .from(events)
+    .where(eq(events.characterId, input.characterId));
 
   // ── 第一阶段：去重 + 日期规范化 ──
   const toSave: Array<{
@@ -224,7 +256,7 @@ export async function saveEvents(db: Database, input: {
   }
 
   // ── 第二阶段：对无法解析的日期进行插值排序 ──
-  const existingDates = existingEvents.map(e => e.dateSortable).filter((d): d is string => !!d);
+  const existingDates = existingEvents.map((e) => e.dateSortable).filter((d): d is string => !!d);
   interpolateDateSortables(toSave, existingDates, characterType);
 
   // ── 第三阶段：批量入库（事务内分批插入） ──
@@ -236,23 +268,26 @@ export async function saveEvents(db: Database, input: {
     for (let i = 0; i < toSave.length; i += BATCH_SIZE) {
       const batch = toSave.slice(i, i + BATCH_SIZE);
       for (const evt of batch) {
-        const result = await tx.insert(events).values({
-          characterId: input.characterId,
-          parentEventId: evt.parentEventId,
-          title: evt.title,
-          description: evt.description,
-          dateText: evt.dateText,
-          dateSortable: evt.dateSortable,
-          category: evt.category,
-          content: evt.content,
-          platform: evt.platform,
-          authorHandle: evt.authorHandle,
-          sourceUrl: evt.sourceUrl,
-          sourceTitle: evt.sourceTitle,
-          importance: evt.importance,
-          metadata: null,
-          reviewStatus: evt.reviewStatus,
-        }).returning();
+        const result = await tx
+          .insert(events)
+          .values({
+            characterId: input.characterId,
+            parentEventId: evt.parentEventId,
+            title: evt.title,
+            description: evt.description,
+            dateText: evt.dateText,
+            dateSortable: evt.dateSortable,
+            category: evt.category,
+            content: evt.content,
+            platform: evt.platform,
+            authorHandle: evt.authorHandle,
+            sourceUrl: evt.sourceUrl,
+            sourceTitle: evt.sourceTitle,
+            importance: evt.importance,
+            metadata: null,
+            reviewStatus: evt.reviewStatus,
+          })
+          .returning();
         inserted.push(result[0]!);
       }
     }
@@ -261,16 +296,21 @@ export async function saveEvents(db: Database, input: {
   return { saved: results, skipped, pendingReview };
 }
 
-export async function getEvents(db: Database, input: {
-  characterId: number;
-  minImportance?: number;
-  category?: string;
-}) {
+export async function getEvents(
+  db: Database,
+  input: {
+    characterId: number;
+    minImportance?: number;
+    category?: string;
+  },
+) {
   const conditions = [eq(events.characterId, input.characterId)];
   if (input.minImportance) conditions.push(gte(events.importance, input.minImportance));
   if (input.category) conditions.push(eq(events.category, input.category));
 
-  return db.select().from(events)
+  return db
+    .select()
+    .from(events)
     .where(and(...conditions))
     .orderBy(sql`COALESCE(${events.dateSortable}, 'zzzz')`, events.createdAt);
 }
@@ -285,31 +325,37 @@ export async function getChildEvents(db: Database, parentEventId: number) {
 }
 
 // Reaction 查询
-export async function saveReactions(db: Database, input: {
-  eventId: number;
-  reactions: Array<{
-    reactor: string;
-    reactorType: ReactorType;
-    reactionText?: string;
-    sentiment?: Sentiment;
-    sourceUrl?: string;
-    sourceTitle?: string;
-  }>;
-}) {
+export async function saveReactions(
+  db: Database,
+  input: {
+    eventId: number;
+    reactions: Array<{
+      reactor: string;
+      reactorType: ReactorType;
+      reactionText?: string;
+      sentiment?: Sentiment;
+      sourceUrl?: string;
+      sourceTitle?: string;
+    }>;
+  },
+) {
   if (input.reactions.length === 0) return [];
 
   return db.transaction(async (tx) => {
     const results = [];
     for (const r of input.reactions) {
-      const result = await tx.insert(reactions).values({
-        eventId: input.eventId,
-        reactor: r.reactor,
-        reactorType: r.reactorType,
-        reactionText: r.reactionText ?? null,
-        sentiment: r.sentiment ?? null,
-        sourceUrl: r.sourceUrl ?? null,
-        sourceTitle: r.sourceTitle ?? null,
-      }).returning();
+      const result = await tx
+        .insert(reactions)
+        .values({
+          eventId: input.eventId,
+          reactor: r.reactor,
+          reactorType: r.reactorType,
+          reactionText: r.reactionText ?? null,
+          sentiment: r.sentiment ?? null,
+          sourceUrl: r.sourceUrl ?? null,
+          sourceTitle: r.sourceTitle ?? null,
+        })
+        .returning();
       results.push(result[0]!);
     }
     return results;
@@ -317,8 +363,7 @@ export async function saveReactions(db: Database, input: {
 }
 
 export async function getReactionsForEvent(db: Database, eventId: number) {
-  return db.select().from(reactions)
-    .where(eq(reactions.eventId, eventId));
+  return db.select().from(reactions).where(eq(reactions.eventId, eventId));
 }
 
 // 删除操作
@@ -330,7 +375,10 @@ export async function deleteEvent(db: Database, id: number) {
   // 删除该事件的所有反应
   await db.delete(reactions).where(eq(reactions.eventId, id));
   // 递归删除子事件及其反应
-  const children = await db.select({ id: events.id }).from(events).where(eq(events.parentEventId, id));
+  const children = await db
+    .select({ id: events.id })
+    .from(events)
+    .where(eq(events.parentEventId, id));
   for (const child of children) {
     await deleteEvent(db, child.id);
   }
@@ -340,7 +388,10 @@ export async function deleteEvent(db: Database, id: number) {
 
 export async function deleteCharacter(db: Database, id: number) {
   // 获取所有事件并逐个删除（含反应级联）
-  const allEvents = await db.select({ id: events.id }).from(events).where(eq(events.characterId, id));
+  const allEvents = await db
+    .select({ id: events.id })
+    .from(events)
+    .where(eq(events.characterId, id));
   for (const evt of allEvents) {
     await db.delete(reactions).where(eq(reactions.eventId, evt.id));
   }
@@ -349,11 +400,16 @@ export async function deleteCharacter(db: Database, id: number) {
 }
 
 // 导出完整角色数据
-export async function exportCharacter(db: Database, characterId: number): Promise<CharacterExport | null> {
+export async function exportCharacter(
+  db: Database,
+  characterId: number,
+): Promise<CharacterExport | null> {
   const character = await getCharacter(db, characterId);
   if (!character) return null;
 
-  const allEvents = await db.select().from(events)
+  const allEvents = await db
+    .select()
+    .from(events)
     .where(eq(events.characterId, characterId))
     .orderBy(sql`COALESCE(${events.dateSortable}, 'zzzz')`, events.createdAt);
 
@@ -368,8 +424,15 @@ export async function exportCharacter(db: Database, characterId: number): Promis
   }
 
   // 批量查询所有反应（单次查询替代 N 次查询）
-  const allReactions = await db.select().from(reactions)
-    .where(sql`${reactions.eventId} IN (${sql.join(allEvents.map(e => sql`${e.id}`), sql`, `)})`);
+  const allReactions = await db
+    .select()
+    .from(reactions)
+    .where(
+      sql`${reactions.eventId} IN (${sql.join(
+        allEvents.map((e) => sql`${e.id}`),
+        sql`, `,
+      )})`,
+    );
 
   // 按 eventId 分组
   const reactionsByEvent = new Map<number, typeof allReactions>();
@@ -395,7 +458,7 @@ export async function exportCharacter(db: Database, characterId: number): Promis
       authorHandle: evt.authorHandle,
       importance: evt.importance,
       children: childrenMap.get(evt.id) ?? [],
-      reactions: eventReactions.map(r => ({
+      reactions: eventReactions.map((r) => ({
         reactor: r.reactor,
         reactorType: r.reactorType as ReactorType,
         reactionText: r.reactionText,
@@ -422,27 +485,33 @@ export async function exportCharacter(db: Database, characterId: number): Promis
 }
 
 // CollectionTask 查询
-export async function createCollectionTask(db: Database, input: {
-  id: string;
-  characterName: string;
-  characterType: CharacterType;
-  source?: string[];
-  maxRounds?: number;
-  aliases?: string;
-  logPath?: string;
-  pid?: number;
-}) {
-  const result = await db.insert(collectionTasks).values({
-    id: input.id,
-    characterName: input.characterName,
-    characterType: input.characterType,
-    source: input.source ? JSON.stringify(input.source) : null,
-    maxRounds: input.maxRounds ?? 5,
-    aliases: input.aliases ?? null,
-    logPath: input.logPath ?? null,
-    pid: input.pid ?? null,
-    status: 'pending',
-  }).returning();
+export async function createCollectionTask(
+  db: Database,
+  input: {
+    id: string;
+    characterName: string;
+    characterType: CharacterType;
+    source?: string[];
+    maxRounds?: number;
+    aliases?: string;
+    logPath?: string;
+    pid?: number;
+  },
+) {
+  const result = await db
+    .insert(collectionTasks)
+    .values({
+      id: input.id,
+      characterName: input.characterName,
+      characterType: input.characterType,
+      source: input.source ? JSON.stringify(input.source) : null,
+      maxRounds: input.maxRounds ?? 5,
+      aliases: input.aliases ?? null,
+      logPath: input.logPath ?? null,
+      pid: input.pid ?? null,
+      status: 'pending',
+    })
+    .returning();
   return result[0]!;
 }
 
@@ -451,17 +520,21 @@ export async function getCollectionTask(db: Database, id: string) {
   return result[0] ?? null;
 }
 
-export async function updateCollectionTask(db: Database, id: string, input: {
-  characterId?: number;
-  status?: CollectionTaskStatus;
-  logPath?: string;
-  pid?: number;
-  startedAt?: string;
-  completedAt?: string;
-  result?: string;
-  error?: string;
-  progress?: CollectionTaskProgress;
-}) {
+export async function updateCollectionTask(
+  db: Database,
+  id: string,
+  input: {
+    characterId?: number;
+    status?: CollectionTaskStatus;
+    logPath?: string;
+    pid?: number;
+    startedAt?: string;
+    completedAt?: string;
+    result?: string;
+    error?: string;
+    progress?: CollectionTaskProgress;
+  },
+) {
   const updates: Record<string, unknown> = { updatedAt: new Date().toISOString() };
   if (input.characterId !== undefined) updates.characterId = input.characterId;
   if (input.status !== undefined) updates.status = input.status;
@@ -476,20 +549,27 @@ export async function updateCollectionTask(db: Database, id: string, input: {
   await db.update(collectionTasks).set(updates).where(eq(collectionTasks.id, id));
 }
 
-export async function listCollectionTasks(db: Database, options?: {
-  status?: CollectionTaskStatus;
-  limit?: number;
-}) {
+export async function listCollectionTasks(
+  db: Database,
+  options?: {
+    status?: CollectionTaskStatus;
+    limit?: number;
+  },
+) {
   const conditions = [];
   if (options?.status) conditions.push(eq(collectionTasks.status, options.status));
-  const query = db.select().from(collectionTasks)
+  const query = db
+    .select()
+    .from(collectionTasks)
     .where(conditions.length > 0 ? and(...conditions) : undefined)
     .orderBy(desc(collectionTasks.createdAt));
   return options?.limit ? query.limit(options.limit) : query;
 }
 
 export async function getRunningCollectionTasks(db: Database) {
-  return db.select().from(collectionTasks)
+  return db
+    .select()
+    .from(collectionTasks)
     .where(eq(collectionTasks.status, 'running'))
     .orderBy(desc(collectionTasks.createdAt));
 }
@@ -505,11 +585,10 @@ export interface EventSearchFilters {
 
 export async function searchCharacters(db: Database, query: string) {
   const pattern = `%${query}%`;
-  return db.select().from(characters)
-    .where(or(
-      like(characters.name, pattern),
-      like(characters.description, pattern),
-    ))
+  return db
+    .select()
+    .from(characters)
+    .where(or(like(characters.name, pattern), like(characters.description, pattern)))
     .orderBy(desc(characters.updatedAt))
     .limit(20);
 }
@@ -532,7 +611,9 @@ export async function searchEvents(db: Database, query: string, filters?: EventS
     conditions.push(sql`${events.dateSortable} <= ${filters.dateTo}`);
   }
 
-  return db.select().from(events)
+  return db
+    .select()
+    .from(events)
     .where(and(...conditions))
     .orderBy(sql`COALESCE(${events.dateSortable}, 'zzzz')`, events.createdAt)
     .limit(50);
@@ -542,14 +623,23 @@ export async function searchEvents(db: Database, query: string, filters?: EventS
 export async function getPendingReviewEvents(db: Database, characterId?: number) {
   const conditions = [eq(events.reviewStatus, 'pending')];
   if (characterId) conditions.push(eq(events.characterId, characterId));
-  return db.select().from(events)
+  return db
+    .select()
+    .from(events)
     .where(and(...conditions))
     .orderBy(desc(events.createdAt));
 }
 
-export async function resolveReviewEvent(db: Database, eventId: number, action: 'keep' | 'merge', mergeTargetId?: number) {
+export async function resolveReviewEvent(
+  db: Database,
+  eventId: number,
+  action: 'keep' | 'merge',
+  mergeTargetId?: number,
+) {
   if (action === 'keep') {
-    await db.update(events).set({ reviewStatus: 'approved', updatedAt: new Date().toISOString() })
+    await db
+      .update(events)
+      .set({ reviewStatus: 'approved', updatedAt: new Date().toISOString() })
       .where(eq(events.id, eventId));
   } else if (action === 'merge' && mergeTargetId) {
     await db.transaction(async (tx) => {
@@ -559,21 +649,59 @@ export async function resolveReviewEvent(db: Database, eventId: number, action: 
         let mergedFrom: number[] = [];
         try {
           mergedFrom = target[0].mergedFromIds ? JSON.parse(target[0].mergedFromIds) : [];
-        } catch { /* 损坏数据，重新初始化 */ }
+        } catch {
+          /* 损坏数据，重新初始化 */
+        }
         mergedFrom.push(eventId);
         const updates: Record<string, unknown> = {
           mergedFromIds: JSON.stringify(mergedFrom),
           updatedAt: new Date().toISOString(),
         };
-        if (!target[0].description && source[0].description) updates.description = source[0].description;
+        if (!target[0].description && source[0].description)
+          updates.description = source[0].description;
         if (!target[0].content && source[0].content) updates.content = source[0].content;
         if (!target[0].dateText && source[0].dateText) updates.dateText = source[0].dateText;
         await tx.update(events).set(updates).where(eq(events.id, mergeTargetId));
         // 转移源事件的 reactions 到目标事件
-        await tx.update(reactions).set({ eventId: mergeTargetId })
+        await tx
+          .update(reactions)
+          .set({ eventId: mergeTargetId })
           .where(eq(reactions.eventId, eventId));
         await tx.delete(events).where(eq(events.id, eventId));
       }
     });
   }
+}
+
+// Tag 查询
+export async function createTag(db: Database, input: { name: string; color?: string }) {
+  const result = await db.insert(tags).values({ name: input.name, color: input.color ?? null }).returning();
+  return result[0]!;
+}
+
+export async function listTags(db: Database) {
+  return db.select().from(tags).orderBy(tags.name);
+}
+
+export async function deleteTag(db: Database, id: number) {
+  await db.delete(characterTags).where(eq(characterTags.tagId, id));
+  await db.delete(tags).where(eq(tags.id, id));
+}
+
+export async function addTagToCharacter(db: Database, characterId: number, tagId: number) {
+  await db.insert(characterTags).values({ characterId, tagId }).onConflictDoNothing();
+}
+
+export async function removeTagFromCharacter(db: Database, characterId: number, tagId: number) {
+  await db.delete(characterTags).where(
+    and(eq(characterTags.characterId, characterId), eq(characterTags.tagId, tagId)),
+  );
+}
+
+export async function getCharacterTags(db: Database, characterId: number) {
+  return db
+    .select({ id: tags.id, name: tags.name, color: tags.color })
+    .from(characterTags)
+    .innerJoin(tags, eq(characterTags.tagId, tags.id))
+    .where(eq(characterTags.characterId, characterId));
 }

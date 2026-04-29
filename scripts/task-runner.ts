@@ -14,9 +14,29 @@ type ExpandPayload = {
   characterName: string;
   characterAliases: string;
   mode: 'range' | 'around';
-  afterEvent?: { id: number; title: string; dateText?: string | null; dateSortable?: string | null; description?: string | null };
-  beforeEvent?: { id: number; title: string; dateText?: string | null; dateSortable?: string | null; description?: string | null };
-  centerEvent?: { id: number; title: string; dateText?: string | null; dateSortable?: string | null; description?: string | null; category?: string | null; importance?: number | null };
+  afterEvent?: {
+    id: number;
+    title: string;
+    dateText?: string | null;
+    dateSortable?: string | null;
+    description?: string | null;
+  };
+  beforeEvent?: {
+    id: number;
+    title: string;
+    dateText?: string | null;
+    dateSortable?: string | null;
+    description?: string | null;
+  };
+  centerEvent?: {
+    id: number;
+    title: string;
+    dateText?: string | null;
+    dateSortable?: string | null;
+    description?: string | null;
+    category?: string | null;
+    importance?: number | null;
+  };
   dbPath: string;
 };
 
@@ -80,7 +100,8 @@ process.on('message', async (msg: IPCMessage) => {
     const aliases = parseAliases(payload.characterAliases);
 
     if (msg.type === 'start-expand') {
-      const { characterId, characterName, mode, afterEvent, beforeEvent, centerEvent } = msg.payload;
+      const { characterId, characterName, mode, afterEvent, beforeEvent, centerEvent } =
+        msg.payload;
       const agentCfg = getAgentModelConfig(config, 'event-explorer');
       const providerCfg = getProviderConfig(config, agentCfg.providerName);
       const model = createModel(providerCfg);
@@ -95,8 +116,15 @@ process.on('message', async (msg: IPCMessage) => {
       }
 
       const result = await runExpandEvents(
-        model, db, characterId, characterName, context,
-        agentCfg.maxIterations, agentCfg.maxTokens, onLog, aliases,
+        model,
+        db,
+        characterId,
+        characterName,
+        context,
+        agentCfg.maxIterations,
+        agentCfg.maxTokens,
+        onLog,
+        aliases,
         abortController.signal,
       );
       send({ type: 'complete', payload: { success: result.success, message: result.message } });
@@ -107,8 +135,14 @@ process.on('message', async (msg: IPCMessage) => {
       const model = createModel(providerCfg);
 
       const result = await runSingleReactionCollector(
-        model, db, eventContext, characterName,
-        agentCfg.maxIterations, agentCfg.maxTokens, onLog, aliases,
+        model,
+        db,
+        eventContext,
+        characterName,
+        agentCfg.maxIterations,
+        agentCfg.maxTokens,
+        onLog,
+        aliases,
         abortController.signal,
       );
       send({ type: 'complete', payload: { success: result.success, message: result.message } });

@@ -1,4 +1,14 @@
-import type { ShentanConfig, ProviderConfig, AgentConfig, SearXNGConfig, QualityConfig, RetryConfig, ThrottleConfig, ProviderOptions } from './types.js';
+import { createLogger } from '@shentan/core/logger';
+import type {
+  ShentanConfig,
+  ProviderConfig,
+  AgentConfig,
+  SearXNGConfig,
+  QualityConfig,
+  RetryConfig,
+  ThrottleConfig,
+  ProviderOptions,
+} from './types.js';
 
 function getEnv(key: string): string | undefined {
   return process.env[key];
@@ -31,8 +41,9 @@ function discoverProviderNames(): string[] {
 
 /** 获取 Provider 的 API Key，支持两种命名: PROVIDER_<NAME>_API_KEY 和 <NAME>_API_KEY */
 function getProviderApiKey(name: string): string | undefined {
-  return getEnv(`PROVIDER_${name.toUpperCase()}_API_KEY`)
-    ?? getEnv(`${name.toUpperCase()}_API_KEY`);
+  return (
+    getEnv(`PROVIDER_${name.toUpperCase()}_API_KEY`) ?? getEnv(`${name.toUpperCase()}_API_KEY`)
+  );
 }
 
 function buildProviders(): Record<string, ProviderConfig> {
@@ -52,7 +63,9 @@ function buildProviders(): Record<string, ProviderConfig> {
       try {
         providerOptions = JSON.parse(providerOptionsRaw);
       } catch {
-        console.warn(`[config] 无法解析 ${prefix}PROVIDER_OPTIONS: ${providerOptionsRaw}`);
+        createLogger({ category: 'config' }).warn(
+          `无法解析 ${prefix}PROVIDER_OPTIONS: ${providerOptionsRaw}`,
+        );
       }
     }
 
@@ -130,9 +143,18 @@ function buildAgentConfigs(): Record<string, AgentConfig> | undefined {
     const maxIter = getEnvInt(`${prefix}MAX_ITERATIONS`);
     const maxTok = getEnvInt(`${prefix}MAX_TOKENS`);
 
-    if (provider) { config.provider = provider; hasValue = true; }
-    if (maxIter !== undefined) { config.maxIterations = maxIter; hasValue = true; }
-    if (maxTok !== undefined) { config.maxTokens = maxTok; hasValue = true; }
+    if (provider) {
+      config.provider = provider;
+      hasValue = true;
+    }
+    if (maxIter !== undefined) {
+      config.maxIterations = maxIter;
+      hasValue = true;
+    }
+    if (maxTok !== undefined) {
+      config.maxTokens = maxTok;
+      hasValue = true;
+    }
 
     if (Object.keys(config).length > 0) {
       configs[name] = config;
@@ -186,7 +208,9 @@ export function resolveConfig(): ShentanConfig {
 
   // 验证默认 Provider 存在
   if (!config.providers[config.default]) {
-    throw new Error(`默认 provider "${config.default}" 未定义，可用: ${Object.keys(config.providers).join(', ')}`);
+    throw new Error(
+      `默认 provider "${config.default}" 未定义，可用: ${Object.keys(config.providers).join(', ')}`,
+    );
   }
 
   return config;

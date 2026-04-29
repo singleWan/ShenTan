@@ -39,34 +39,40 @@ export function createBgTask(input: {
 }) {
   const db = getDb();
   const now = new Date().toISOString();
-  db.insert(backgroundTasks).values({
-    id: input.id,
-    type: input.type,
-    characterId: input.characterId ?? null,
-    characterName: input.characterName,
-    config: input.config ?? null,
-    status: 'pending',
-    createdAt: now,
-    updatedAt: now,
-  }).run();
+  db.insert(backgroundTasks)
+    .values({
+      id: input.id,
+      type: input.type,
+      characterId: input.characterId ?? null,
+      characterName: input.characterName,
+      config: input.config ?? null,
+      status: 'pending',
+      createdAt: now,
+      updatedAt: now,
+    })
+    .run();
 }
 
-export function updateBgTask(id: string, updates: {
-  status?: string;
-  result?: string | null;
-  error?: string | null;
-  progress?: string | null;
-  startedAt?: string | null;
-  completedAt?: string | null;
-}) {
+export function updateBgTask(
+  id: string,
+  updates: {
+    status?: string;
+    result?: string | null;
+    error?: string | null;
+    progress?: string | null;
+    startedAt?: string | null;
+    completedAt?: string | null;
+  },
+) {
   const db = getDb();
-  const filtered = Object.fromEntries(
-    Object.entries(updates).filter(([_, v]) => v !== undefined)
-  );
-  db.update(backgroundTasks).set({
-    ...filtered,
-    updatedAt: new Date().toISOString(),
-  }).where(eq(backgroundTasks.id, id)).run();
+  const filtered = Object.fromEntries(Object.entries(updates).filter(([_, v]) => v !== undefined));
+  db.update(backgroundTasks)
+    .set({
+      ...filtered,
+      updatedAt: new Date().toISOString(),
+    })
+    .where(eq(backgroundTasks.id, id))
+    .run();
 }
 
 export function getBgTask(id: string) {
@@ -224,17 +230,13 @@ export function clearTasks(statuses: string[]): number {
 
   // 清理 collectionTasks
   for (const status of statuses) {
-    const result = db.delete(collectionTasks)
-      .where(eq(collectionTasks.status, status))
-      .run();
+    const result = db.delete(collectionTasks).where(eq(collectionTasks.status, status)).run();
     deleted += result.changes;
   }
 
   // 清理 backgroundTasks
   for (const status of statuses) {
-    const result = db.delete(backgroundTasks)
-      .where(eq(backgroundTasks.status, status))
-      .run();
+    const result = db.delete(backgroundTasks).where(eq(backgroundTasks.status, status)).run();
     deleted += result.changes;
   }
 
@@ -244,12 +246,16 @@ export function clearTasks(statuses: string[]): number {
 // 获取 DB 中活跃的后台任务（用于服务器重启恢复）
 export async function getActiveBgTasksFromDb() {
   const db = getDb();
-  return db.select().from(backgroundTasks)
-    .where(or(
-      eq(backgroundTasks.status, 'running'),
-      eq(backgroundTasks.status, 'starting'),
-      eq(backgroundTasks.status, 'pending'),
-    ))
+  return db
+    .select()
+    .from(backgroundTasks)
+    .where(
+      or(
+        eq(backgroundTasks.status, 'running'),
+        eq(backgroundTasks.status, 'starting'),
+        eq(backgroundTasks.status, 'pending'),
+      ),
+    )
     .orderBy(desc(backgroundTasks.createdAt))
     .all();
 }

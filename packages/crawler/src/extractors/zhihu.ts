@@ -23,7 +23,8 @@ async function extractZhihuAnswer(page: Page): Promise<ScrapedContent | null> {
   try {
     return await page.evaluate(() => {
       // 问题标题
-      const questionEl = document.querySelector('.QuestionHeader-title') ||
+      const questionEl =
+        document.querySelector('.QuestionHeader-title') ||
         document.querySelector('h1.QuestionHeaderTitle');
       const questionTitle = questionEl?.textContent?.trim() || '';
 
@@ -68,11 +69,12 @@ async function extractZhihuAnswer(page: Page): Promise<ScrapedContent | null> {
 async function extractZhihuArticle(page: Page): Promise<ScrapedContent | null> {
   try {
     return await page.evaluate(() => {
-      const titleEl = document.querySelector('.Post-Title') ||
-        document.querySelector('h1.PostTitle');
+      const titleEl =
+        document.querySelector('.Post-Title') || document.querySelector('h1.PostTitle');
       const title = titleEl?.textContent?.trim() || document.title;
 
-      const contentEl = document.querySelector('.Post-RichTextContainer') ||
+      const contentEl =
+        document.querySelector('.Post-RichTextContainer') ||
         document.querySelector('.RichText') ||
         document.querySelector('.RichContent-inner');
 
@@ -109,7 +111,8 @@ async function extractZhihuGeneral(page: Page): Promise<ScrapedContent | null> {
   try {
     return await page.evaluate(() => {
       const title = document.title;
-      const contentEl = document.querySelector('.RichContent-inner') ||
+      const contentEl =
+        document.querySelector('.RichContent-inner') ||
         document.querySelector('.RichText') ||
         document.querySelector('main');
 

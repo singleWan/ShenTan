@@ -27,8 +27,10 @@ export async function runBiographer(
   log(`[Biographer] 开始收集 "${characterName}" 的生平事迹...`);
 
   const aliasSection = buildAliasSection(characterName, aliases);
-  const sourceSection = buildSourceSection(source,
-    '请优先从该作品中搜索和提取角色的生平事件与相关信息。');
+  const sourceSection = buildSourceSection(
+    source,
+    '请优先从该作品中搜索和提取角色的生平事件与相关信息。',
+  );
 
   const userPrompt = `请收集角色 "${characterName}" 的生平事迹。
 角色类型: ${characterType === 'fictional' ? '小说/虚构角色' : '历史人物'}

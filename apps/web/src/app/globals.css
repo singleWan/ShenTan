@@ -74,8 +74,12 @@ body {
 }
 
 @keyframes scan {
-  0% { top: -2px; }
-  100% { top: 100vh; }
+  0% {
+    top: -2px;
+  }
+  100% {
+    top: 100vh;
+  }
 }
 
 /* --- Container --- */
@@ -99,7 +103,9 @@ body {
   font-size: 2rem;
   font-weight: 900;
   color: var(--cyan);
-  text-shadow: 0 0 10px var(--cyan-glow), 0 0 30px rgba(0, 240, 255, 0.15);
+  text-shadow:
+    0 0 10px var(--cyan-glow),
+    0 0 30px rgba(0, 240, 255, 0.15);
   letter-spacing: 0.05em;
 }
 
@@ -123,20 +129,33 @@ body {
 }
 
 @keyframes glitch {
-  0%, 90%, 100% {
-    text-shadow: 0 0 10px var(--cyan-glow), 0 0 30px rgba(0, 240, 255, 0.15);
+  0%,
+  90%,
+  100% {
+    text-shadow:
+      0 0 10px var(--cyan-glow),
+      0 0 30px rgba(0, 240, 255, 0.15);
     transform: none;
   }
   91% {
-    text-shadow: -2px 0 var(--red), 2px 0 var(--cyan), 0 0 10px var(--cyan-glow);
+    text-shadow:
+      -2px 0 var(--red),
+      2px 0 var(--cyan),
+      0 0 10px var(--cyan-glow);
     transform: skewX(-1deg);
   }
   93% {
-    text-shadow: 2px 0 var(--red), -2px 0 var(--cyan), 0 0 10px var(--cyan-glow);
+    text-shadow:
+      2px 0 var(--red),
+      -2px 0 var(--cyan),
+      0 0 10px var(--cyan-glow);
     transform: skewX(1deg);
   }
   95% {
-    text-shadow: -1px 1px var(--red), 1px -1px var(--cyan), 0 0 10px var(--cyan-glow);
+    text-shadow:
+      -1px 1px var(--red),
+      1px -1px var(--cyan),
+      0 0 10px var(--cyan-glow);
     transform: skewX(-0.5deg);
   }
 }
@@ -177,7 +196,9 @@ body {
 
 .hud-card:hover {
   border-color: rgba(0, 240, 255, 0.3);
-  box-shadow: 0 0 20px rgba(0, 240, 255, 0.06), inset 0 0 20px rgba(0, 240, 255, 0.02);
+  box-shadow:
+    0 0 20px rgba(0, 240, 255, 0.06),
+    inset 0 0 20px rgba(0, 240, 255, 0.02);
 }
 
 .hud-card:hover::before,
@@ -318,13 +339,30 @@ body {
 }
 
 /* Legacy badge class mapping */
-.badge.completed { background: var(--green-dim); color: var(--green); border-color: rgba(0, 255, 136, 0.25); }
-.badge.collecting { background: var(--cyan-dim); color: var(--cyan); border-color: rgba(0, 240, 255, 0.25); }
-.badge.pending { background: var(--amber-dim); color: var(--amber); border-color: rgba(255, 184, 0, 0.25); }
+.badge.completed {
+  background: var(--green-dim);
+  color: var(--green);
+  border-color: rgba(0, 255, 136, 0.25);
+}
+.badge.collecting {
+  background: var(--cyan-dim);
+  color: var(--cyan);
+  border-color: rgba(0, 240, 255, 0.25);
+}
+.badge.pending {
+  background: var(--amber-dim);
+  color: var(--amber);
+  border-color: rgba(255, 184, 0, 0.25);
+}
 
 @keyframes pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.3; }
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.3;
+  }
 }
 
 /* --- Back Link --- */
@@ -502,12 +540,12 @@ body {
   box-shadow: 0 0 8px var(--cyan-glow);
 }
 
-.timeline-node[data-importance="4"] {
+.timeline-node[data-importance='4'] {
   background: var(--amber);
   box-shadow: 0 0 8px rgba(255, 184, 0, 0.4);
 }
 
-.timeline-node[data-importance="5"] {
+.timeline-node[data-importance='5'] {
   background: var(--red);
   box-shadow: 0 0 8px rgba(255, 0, 60, 0.4);
 }
@@ -634,10 +672,22 @@ body {
   line-height: 1.3;
 }
 
-.sentiment-positive { color: var(--green); background: var(--green-dim); }
-.sentiment-negative { color: var(--red); background: var(--red-dim); }
-.sentiment-neutral { color: var(--text-secondary); background: rgba(74, 90, 120, 0.15); }
-.sentiment-mixed { color: var(--amber); background: var(--amber-dim); }
+.sentiment-positive {
+  color: var(--green);
+  background: var(--green-dim);
+}
+.sentiment-negative {
+  color: var(--red);
+  background: var(--red-dim);
+}
+.sentiment-neutral {
+  color: var(--text-secondary);
+  background: rgba(74, 90, 120, 0.15);
+}
+.sentiment-mixed {
+  color: var(--amber);
+  background: var(--amber-dim);
+}
 
 /* --- Empty State --- */
 .empty {
@@ -680,7 +730,9 @@ body {
 }
 
 .neon-link:hover {
-  text-shadow: 0 0 15px var(--cyan-glow), 0 0 30px rgba(0, 240, 255, 0.15);
+  text-shadow:
+    0 0 15px var(--cyan-glow),
+    0 0 30px rgba(0, 240, 255, 0.15);
 }
 
 /* --- Buttons --- */
@@ -706,7 +758,9 @@ body {
 
 .btn-primary:hover {
   background: var(--cyan-dim);
-  box-shadow: 0 0 15px rgba(0, 240, 255, 0.15), inset 0 0 15px rgba(0, 240, 255, 0.04);
+  box-shadow:
+    0 0 15px rgba(0, 240, 255, 0.15),
+    inset 0 0 15px rgba(0, 240, 255, 0.04);
 }
 
 .btn-secondary {
@@ -782,7 +836,7 @@ body {
   font-family: var(--font-mono), 'JetBrains Mono', monospace;
 }
 
-.form-group input[type="text"] {
+.form-group input[type='text'] {
   width: 100%;
   padding: 0.75rem 1rem;
   background: var(--surface);
@@ -794,16 +848,18 @@ body {
   transition: all 0.3s;
 }
 
-.form-group input[type="text"]:focus {
+.form-group input[type='text']:focus {
   border-color: var(--cyan);
-  box-shadow: 0 0 12px rgba(0, 240, 255, 0.08), inset 0 0 12px rgba(0, 240, 255, 0.02);
+  box-shadow:
+    0 0 12px rgba(0, 240, 255, 0.08),
+    inset 0 0 12px rgba(0, 240, 255, 0.02);
 }
 
-.form-group input[type="text"]::placeholder {
+.form-group input[type='text']::placeholder {
   color: var(--text-muted);
 }
 
-.form-group input[type="range"] {
+.form-group input[type='range'] {
   width: 100%;
   accent-color: var(--cyan);
   height: 4px;
@@ -813,7 +869,7 @@ body {
   outline: none;
 }
 
-.form-group input[type="range"]::-webkit-slider-thumb {
+.form-group input[type='range']::-webkit-slider-thumb {
   -webkit-appearance: none;
   width: 14px;
   height: 14px;
@@ -956,9 +1012,15 @@ body {
   background: var(--border);
 }
 
-.terminal-dot:nth-child(1) { background: #ff5f57; }
-.terminal-dot:nth-child(2) { background: #febc2e; }
-.terminal-dot:nth-child(3) { background: #28c840; }
+.terminal-dot:nth-child(1) {
+  background: #ff5f57;
+}
+.terminal-dot:nth-child(2) {
+  background: #febc2e;
+}
+.terminal-dot:nth-child(3) {
+  background: #28c840;
+}
 
 .terminal-title {
   font-family: var(--font-mono), 'JetBrains Mono', monospace;
@@ -1179,7 +1241,9 @@ body {
 
 .alias-input-container:focus-within {
   border-color: var(--cyan);
-  box-shadow: 0 0 12px rgba(0, 240, 255, 0.08), inset 0 0 12px rgba(0, 240, 255, 0.02);
+  box-shadow:
+    0 0 12px rgba(0, 240, 255, 0.08),
+    inset 0 0 12px rgba(0, 240, 255, 0.02);
 }
 
 .alias-tag {
@@ -1477,8 +1541,13 @@ body {
 }
 
 @keyframes pulse-glow {
-  0%, 100% { opacity: 0.4; }
-  50% { opacity: 1; }
+  0%,
+  100% {
+    opacity: 0.4;
+  }
+  50% {
+    opacity: 1;
+  }
 }
 
 .inline-progress-done {
@@ -1736,7 +1805,9 @@ body {
   animation: pulse 2s infinite;
 }
 
-.badge-status-pending, .badge-status-starting, .badge-status-running {
+.badge-status-pending,
+.badge-status-starting,
+.badge-status-running {
   color: var(--cyan);
 }
 

@@ -10,10 +10,7 @@ export interface RoundQuality {
 /**
  * 评估当前轮次质量并决定是否继续
  */
-export function shouldContinue(
-  qualities: RoundQuality[],
-  config: Partial<QualityConfig>,
-): boolean {
+export function shouldContinue(qualities: RoundQuality[], config: Partial<QualityConfig>): boolean {
   const cfg = { ...DEFAULT_QUALITY_CONFIG, ...config };
 
   // 不足最少轮次，必须继续
@@ -25,9 +22,7 @@ export function shouldContinue(
   // 检查连续低新增轮次
   const recent = qualities.slice(-cfg.consecutiveDryRounds);
   if (recent.length >= cfg.consecutiveDryRounds) {
-    const allDry = recent.every(
-      (q) => q.newEventsCount < cfg.convergenceThreshold,
-    );
+    const allDry = recent.every((q) => q.newEventsCount < cfg.convergenceThreshold);
     if (allDry) return false;
   }
 

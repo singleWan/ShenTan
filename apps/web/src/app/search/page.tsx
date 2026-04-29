@@ -26,15 +26,31 @@ export default async function SearchPage({ searchParams }: Props) {
     }
   }
 
-  const categories = ['life', 'career', 'political', 'conflict', 'achievement', 'scandal', 'speech', 'policy', 'statement', 'rumor', 'other'];
+  const categories = [
+    'life',
+    'career',
+    'political',
+    'conflict',
+    'achievement',
+    'scandal',
+    'speech',
+    'policy',
+    'statement',
+    'rumor',
+    'other',
+  ];
 
   return (
     <div className="container">
       <div className="header">
-        <Link href="/" className="back-link">&larr; 返回首页</Link>
+        <Link href="/" className="back-link">
+          &larr; 返回首页
+        </Link>
         <h1>搜索结果</h1>
         <p className="header-subtitle">
-          {q ? `搜索: "${q}" — 找到 ${characters.length} 个角色, ${events.length} 个事件` : '输入关键词开始搜索'}
+          {q
+            ? `搜索: "${q}" — 找到 ${characters.length} 个角色, ${events.length} 个事件`
+            : '输入关键词开始搜索'}
         </p>
       </div>
 
@@ -51,7 +67,12 @@ export default async function SearchPage({ searchParams }: Props) {
         </div>
         <div className="search-filters">
           <span className="filter-label">类别过滤:</span>
-          <button type="submit" name="category" value="" className={`filter-btn ${!category ? 'active' : ''}`}>
+          <button
+            type="submit"
+            name="category"
+            value=""
+            className={`filter-btn ${!category ? 'active' : ''}`}
+          >
             全部
           </button>
           {categories.map((cat) => (
@@ -85,7 +106,9 @@ export default async function SearchPage({ searchParams }: Props) {
                 <div className="search-result-card-title">{c.name}</div>
                 <div className="search-result-card-meta">
                   <span>{c.type}</span>
-                  {c.description && <span className="search-result-desc">{c.description.slice(0, 100)}</span>}
+                  {c.description && (
+                    <span className="search-result-desc">{c.description.slice(0, 100)}</span>
+                  )}
                 </div>
               </Link>
             ))}
@@ -98,7 +121,11 @@ export default async function SearchPage({ searchParams }: Props) {
           <h2 className="search-section-heading">事件 ({events.length})</h2>
           <div className="search-results-list">
             {events.map((e) => (
-              <Link key={e.id} href={`/characters/${e.characterId}`} className="search-result-card hud-card">
+              <Link
+                key={e.id}
+                href={`/characters/${e.characterId}`}
+                className="search-result-card hud-card"
+              >
                 <div className="search-result-card-header">
                   <span className="search-result-card-title">{e.title}</span>
                   <span className="search-result-card-badge">{e.category}</span>

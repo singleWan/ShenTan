@@ -30,14 +30,14 @@
 → 输出结构化角色数据 (JSON / Markdown / Web 可视化)
 ```
 
-| 层级 | 技术 | 说明 |
-|------|------|------|
-| AI 引擎 | Vercel AI SDK + Zod | 工具调用循环，支持多 Provider |
-| 爬虫引擎 | Playwright (Chromium) | 无头浏览器爬取 + 内容提取 |
-| 数据库 | SQLite (libsql / better-sqlite3) | Drizzle ORM，双驱动架构 |
-| Web 框架 | Next.js 15 (App Router, React 19) | 服务端渲染 + SSE 实时日志 |
-| CLI 框架 | Commander.js | 命令行入口 |
-| 构建体系 | pnpm Monorepo + TypeScript (ESM) | workspace 协议包间引用 |
+| 层级     | 技术                              | 说明                          |
+| -------- | --------------------------------- | ----------------------------- |
+| AI 引擎  | Vercel AI SDK + Zod               | 工具调用循环，支持多 Provider |
+| 爬虫引擎 | Playwright (Chromium)             | 无头浏览器爬取 + 内容提取     |
+| 数据库   | SQLite (libsql / better-sqlite3)  | Drizzle ORM，双驱动架构       |
+| Web 框架 | Next.js 15 (App Router, React 19) | 服务端渲染 + SSE 实时日志     |
+| CLI 框架 | Commander.js                      | 命令行入口                    |
+| 构建体系 | pnpm Monorepo + TypeScript (ESM)  | workspace 协议包间引用        |
 
 ## 快速开始
 
@@ -123,13 +123,13 @@ pnpm cli serve -p 3000
 
 **CLI 选项说明：**
 
-| 选项 | 说明 | 默认值 |
-|------|------|--------|
-| `-t, --type` | 角色类型：`historical`（历史人物）或 `fictional`（虚构角色） | `historical` |
-| `-s, --source` | 角色来源（如"哈利波特系列"） | — |
-| `-r, --rounds` | 事件拓展最大轮次（动态收敛，实际可能更少） | `5` |
-| `-a, --aliases` | 用户自定义别名，逗号分隔 | — |
-| `--db` | 数据库文件路径 | `./data/shentan.db` |
+| 选项            | 说明                                                         | 默认值              |
+| --------------- | ------------------------------------------------------------ | ------------------- |
+| `-t, --type`    | 角色类型：`historical`（历史人物）或 `fictional`（虚构角色） | `historical`        |
+| `-s, --source`  | 角色来源（如"哈利波特系列"）                                 | —                   |
+| `-r, --rounds`  | 事件拓展最大轮次（动态收敛，实际可能更少）                   | `5`                 |
+| `-a, --aliases` | 用户自定义别名，逗号分隔                                     | —                   |
+| `--db`          | 数据库文件路径                                               | `./data/shentan.db` |
 
 ### Web 界面
 
@@ -150,6 +150,7 @@ pnpm web
 **JSON 格式**：包含完整的角色数据、事件列表和反应信息。
 
 **Markdown 格式**：生成带时间线的事件文档，包含：
+
 - 分类标签（个人生活、职业生涯、政治活动等）
 - 重要度星级
 - 各方反应（含情感倾向标注）
@@ -236,60 +237,60 @@ pnpm test:coverage    # 生成覆盖率报告
 
 #### 核心设置
 
-| 变量 | 说明 | 默认值 |
-|------|------|--------|
+| 变量               | 说明                     | 默认值                |
+| ------------------ | ------------------------ | --------------------- |
 | `PROVIDER_DEFAULT` | 默认使用的 Provider 名称 | 第一个定义的 Provider |
-| `MAX_TOKENS` | 全局 AI 最大输出 Token | `8000` |
-| `DATABASE_PATH` | SQLite 数据库路径 | `./data/shentan.db` |
-| `PORT` | Web 服务端口 | `3000` |
+| `MAX_TOKENS`       | 全局 AI 最大输出 Token   | `8000`                |
+| `DATABASE_PATH`    | SQLite 数据库路径        | `./data/shentan.db`   |
+| `PORT`             | Web 服务端口             | `3000`                |
 
 #### Provider 定义
 
 通过 `PROVIDER_<名称>_*` 前缀定义 AI Provider（自动发现机制）：
 
-| 变量模式 | 说明 | 必填 |
-|---------|------|------|
-| `PROVIDER_<名称>_TYPE` | Provider 类型：`anthropic` / `openai` / `openai-compatible` | 是 |
-| `PROVIDER_<名称>_MODEL` | 模型名称 | 是 |
-| `PROVIDER_<名称>_API_KEY` | API 密钥（也可用 `<名称>_API_KEY`） | 否 |
-| `PROVIDER_<名称>_BASE_URL` | 自定义 API 地址（`openai-compatible` 必填） | 否 |
+| 变量模式                   | 说明                                                        | 必填 |
+| -------------------------- | ----------------------------------------------------------- | ---- |
+| `PROVIDER_<名称>_TYPE`     | Provider 类型：`anthropic` / `openai` / `openai-compatible` | 是   |
+| `PROVIDER_<名称>_MODEL`    | 模型名称                                                    | 是   |
+| `PROVIDER_<名称>_API_KEY`  | API 密钥（也可用 `<名称>_API_KEY`）                         | 否   |
+| `PROVIDER_<名称>_BASE_URL` | 自定义 API 地址（`openai-compatible` 必填）                 | 否   |
 
 #### 搜索引擎
 
-| 变量 | 说明 | 默认值 |
-|------|------|--------|
-| `SEARXNG_BASE_URL` | SearXNG 服务地址 | (不启用) |
-| `SEARXNG_ENABLED` | 是否启用 | `true` |
-| `SEARXNG_CACHE_TTL` | 缓存 TTL（秒） | `1800` |
+| 变量                | 说明             | 默认值   |
+| ------------------- | ---------------- | -------- |
+| `SEARXNG_BASE_URL`  | SearXNG 服务地址 | (不启用) |
+| `SEARXNG_ENABLED`   | 是否启用         | `true`   |
+| `SEARXNG_CACHE_TTL` | 缓存 TTL（秒）   | `1800`   |
 
 #### API 重试与节流
 
 遇到限速（429）或服务端错误（5xx）时自动重试，采用指数退避策略，并在请求之间插入最小间隔。
 
-| 变量 | 说明 | 默认值 |
-|------|------|--------|
-| `RETRY_MAX_RETRIES` | 最大重试次数（设为 `0` 禁用） | `3` |
-| `RETRY_BASE_DELAY` | 首次重试延迟（毫秒） | `2000` |
-| `RETRY_MAX_DELAY` | 最大延迟（毫秒） | `30000` |
-| `API_MIN_INTERVAL` | 两次请求最小间隔（毫秒，设为 `0` 禁用） | `1000` |
+| 变量                | 说明                                    | 默认值  |
+| ------------------- | --------------------------------------- | ------- |
+| `RETRY_MAX_RETRIES` | 最大重试次数（设为 `0` 禁用）           | `3`     |
+| `RETRY_BASE_DELAY`  | 首次重试延迟（毫秒）                    | `2000`  |
+| `RETRY_MAX_DELAY`   | 最大延迟（毫秒）                        | `30000` |
+| `API_MIN_INTERVAL`  | 两次请求最小间隔（毫秒，设为 `0` 禁用） | `1000`  |
 
 #### Agent 覆盖（可选）
 
-| 变量模式 | 说明 | 默认值 |
-|---------|------|--------|
-| `AGENT_<名称>_MAX_ITERATIONS` | 最大迭代次数 | `25` |
-| `AGENT_<名称>_MAX_TOKENS` | 最大输出 Token | 继承全局 `MAX_TOKENS` |
+| 变量模式                      | 说明           | 默认值                |
+| ----------------------------- | -------------- | --------------------- |
+| `AGENT_<名称>_MAX_ITERATIONS` | 最大迭代次数   | `25`                  |
+| `AGENT_<名称>_MAX_TOKENS`     | 最大输出 Token | 继承全局 `MAX_TOKENS` |
 
 Agent 名称：`BIOGRAPHER` / `EVENT_EXPLORER` / `STATEMENT_COLLECTOR` / `REACTION_COLLECTOR`
 
 #### 质量控制（可选）
 
-| 变量 | 说明 | 默认值 |
-|------|------|--------|
-| `QUALITY_MAX_EXPLORE_ROUNDS` | 最大拓展轮次 | `5` |
-| `QUALITY_MIN_EXPLORE_ROUNDS` | 最小拓展轮次 | `2` |
-| `QUALITY_CONVERGENCE_THRESHOLD` | 收敛阈值 | `2` |
-| `QUALITY_CONSECUTIVE_DRY_ROUNDS` | 连续无效轮次 | `2` |
+| 变量                             | 说明         | 默认值 |
+| -------------------------------- | ------------ | ------ |
+| `QUALITY_MAX_EXPLORE_ROUNDS`     | 最大拓展轮次 | `5`    |
+| `QUALITY_MIN_EXPLORE_ROUNDS`     | 最小拓展轮次 | `2`    |
+| `QUALITY_CONVERGENCE_THRESHOLD`  | 收敛阈值     | `2`    |
+| `QUALITY_CONSECUTIVE_DRY_ROUNDS` | 连续无效轮次 | `2`    |
 
 ### 编码规范
 

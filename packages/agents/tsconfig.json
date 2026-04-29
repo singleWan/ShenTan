@@ -5,8 +5,5 @@
     "rootDir": "./src"
   },
   "include": ["src/**/*.ts"],
-  "references": [
-    { "path": "../core" },
-    { "path": "../crawler" }
-  ]
+  "references": [{ "path": "../core" }, { "path": "../crawler" }]
 }

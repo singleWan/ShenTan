@@ -1,8 +1,19 @@
 import { describe, it, expect } from 'vitest';
 import {
-  ShentanError, ConfigError, DatabaseError, SearchError, ScrapeError,
-  BrowserError, AgentError, ToolError, ProviderError, ValidationError,
-  TimeoutError, AbortedError, isShentanError, toShentanError,
+  ShentanError,
+  ConfigError,
+  DatabaseError,
+  SearchError,
+  ScrapeError,
+  BrowserError,
+  AgentError,
+  ToolError,
+  ProviderError,
+  ValidationError,
+  TimeoutError,
+  AbortedError,
+  isShentanError,
+  toShentanError,
 } from './errors.js';
 
 describe('ShentanError', () => {

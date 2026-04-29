@@ -53,7 +53,9 @@ export async function deleteCharacterCommand(
     }
 
     if (!options.force) {
-      const confirmed = await askConfirm(`确定要删除角色「${characterName}」(ID: ${characterId}) 及其所有事件和反应吗？(y/N) `);
+      const confirmed = await askConfirm(
+        `确定要删除角色「${characterName}」(ID: ${characterId}) 及其所有事件和反应吗？(y/N) `,
+      );
       if (!confirmed) {
         console.log('已取消');
         return;
@@ -67,10 +69,7 @@ export async function deleteCharacterCommand(
   }
 }
 
-export async function deleteEventCommand(
-  id: string,
-  options: { db?: string; force?: boolean },
-) {
+export async function deleteEventCommand(id: string, options: { db?: string; force?: boolean }) {
   const db = await initDatabase(getDbPath(options.db));
   const eventId = parseInt(id, 10);
 
@@ -87,7 +86,9 @@ export async function deleteEventCommand(
     }
 
     if (!options.force) {
-      const confirmed = await askConfirm(`确定要删除事件「${event.title}」(ID: ${eventId}) 及其所有反应吗？(y/N) `);
+      const confirmed = await askConfirm(
+        `确定要删除事件「${event.title}」(ID: ${eventId}) 及其所有反应吗？(y/N) `,
+      );
       if (!confirmed) {
         console.log('已取消');
         return;
@@ -101,10 +102,7 @@ export async function deleteEventCommand(
   }
 }
 
-export async function deleteReactionCommand(
-  id: string,
-  options: { db?: string; force?: boolean },
-) {
+export async function deleteReactionCommand(id: string, options: { db?: string; force?: boolean }) {
   const db = await initDatabase(getDbPath(options.db));
   const reactionId = parseInt(id, 10);
 

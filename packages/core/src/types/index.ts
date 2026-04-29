@@ -2,10 +2,25 @@
 
 export type CharacterType = 'historical' | 'fictional';
 export type CharacterStatus = 'pending' | 'collecting' | 'completed' | 'failed';
-export type EventCategory = 'life' | 'career' | 'political' | 'conflict' | 'achievement' | 'scandal' | 'speech' | 'policy' | 'statement' | 'rumor' | 'other';
+export type EventCategory =
+  | 'life'
+  | 'career'
+  | 'political'
+  | 'conflict'
+  | 'achievement'
+  | 'scandal'
+  | 'speech'
+  | 'policy'
+  | 'statement'
+  | 'rumor'
+  | 'other';
 export type ReactorType = 'person' | 'organization' | 'country' | 'media' | 'group';
 export type Sentiment = 'positive' | 'negative' | 'neutral' | 'mixed';
-export type AgentType = 'biographer' | 'event-explorer' | 'reaction-collector' | 'statement-collector';
+export type AgentType =
+  | 'biographer'
+  | 'event-explorer'
+  | 'reaction-collector'
+  | 'statement-collector';
 export type TaskStatus = 'pending' | 'running' | 'completed' | 'failed';
 export type CollectionTaskStatus = 'pending' | 'running' | 'completed' | 'failed' | 'cancelled';
 export type BackgroundTaskType = 'expand-events' | 'collect-reactions';

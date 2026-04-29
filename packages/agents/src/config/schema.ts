@@ -18,22 +18,27 @@ const agentConfigSchema = z.object({
 
 export const shentanConfigSchema = z.object({
   default: z.string().min(1, '必须指定默认 provider'),
-  providers: z.record(z.string(), providerConfigSchema).refine(
-    (providers) => Object.keys(providers).length > 0,
-    { message: '至少需要配置一个 provider' },
-  ),
+  providers: z
+    .record(z.string(), providerConfigSchema)
+    .refine((providers) => Object.keys(providers).length > 0, {
+      message: '至少需要配置一个 provider',
+    }),
   maxTokens: z.number().int().min(1).max(65536).optional(),
-  searxng: z.object({
-    baseUrl: z.string().url().optional().default('http://localhost:8080'),
-    enabled: z.boolean().optional().default(true),
-    cacheTTL: z.number().int().min(0).optional().default(1800),
-  }).optional(),
-  quality: z.object({
-    maxExploreRounds: z.number().int().min(1).max(20).optional(),
-    minExploreRounds: z.number().int().min(1).max(10).optional(),
-    convergenceThreshold: z.number().int().min(0).max(20).optional(),
-    consecutiveDryRounds: z.number().int().min(1).max(5).optional(),
-  }).optional(),
+  searxng: z
+    .object({
+      baseUrl: z.string().url().optional().default('http://localhost:8080'),
+      enabled: z.boolean().optional().default(true),
+      cacheTTL: z.number().int().min(0).optional().default(1800),
+    })
+    .optional(),
+  quality: z
+    .object({
+      maxExploreRounds: z.number().int().min(1).max(20).optional(),
+      minExploreRounds: z.number().int().min(1).max(10).optional(),
+      convergenceThreshold: z.number().int().min(0).max(20).optional(),
+      consecutiveDryRounds: z.number().int().min(1).max(5).optional(),
+    })
+    .optional(),
   agents: z.record(z.string(), agentConfigSchema).optional(),
 });
 

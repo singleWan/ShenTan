@@ -7,13 +7,33 @@ import { getDateContext } from './date-context.js';
 
 export interface ExpandRangeContext {
   mode: 'range';
-  afterEvent: { id: number; title: string; dateText?: string | null; dateSortable?: string | null; description?: string | null };
-  beforeEvent: { id: number; title: string; dateText?: string | null; dateSortable?: string | null; description?: string | null };
+  afterEvent: {
+    id: number;
+    title: string;
+    dateText?: string | null;
+    dateSortable?: string | null;
+    description?: string | null;
+  };
+  beforeEvent: {
+    id: number;
+    title: string;
+    dateText?: string | null;
+    dateSortable?: string | null;
+    description?: string | null;
+  };
 }
 
 export interface ExpandAroundContext {
   mode: 'around';
-  centerEvent: { id: number; title: string; dateText?: string | null; dateSortable?: string | null; description?: string | null; category?: string | null; importance?: number | null };
+  centerEvent: {
+    id: number;
+    title: string;
+    dateText?: string | null;
+    dateSortable?: string | null;
+    description?: string | null;
+    category?: string | null;
+    importance?: number | null;
+  };
 }
 
 export type ExpandContext = ExpandRangeContext | ExpandAroundContext;
@@ -33,9 +53,10 @@ export async function runExpandEvents(
   const log = (msg: string) => onLog?.(msg);
   log(`[ExpandEvents] 开始拓展 "${characterName}" 的事件...`);
 
-  const aliasSection = aliases && aliases.length > 0
-    ? `\n## 角色搜索别名\n\n角色 "${characterName}" 在不同平台/语言下的搜索关键字：\n${formatAliasesForPrompt(aliases)}\n\n搜索时请使用以上所有别名分别搜索。\n`
-    : '';
+  const aliasSection =
+    aliases && aliases.length > 0
+      ? `\n## 角色搜索别名\n\n角色 "${characterName}" 在不同平台/语言下的搜索关键字：\n${formatAliasesForPrompt(aliases)}\n\n搜索时请使用以上所有别名分别搜索。\n`
+      : '';
 
   let contextSection: string;
   if (context.mode === 'range') {

@@ -30,14 +30,14 @@ User Input → Orchestrator
 → Output structured character data (JSON / Markdown / Web visualization)
 ```
 
-| Layer | Technology | Description |
-|-------|-----------|-------------|
-| AI Engine | Vercel AI SDK + Zod | Tool-calling loop, multi-provider support |
-| Crawler | Playwright (Chromium) | Headless browser scraping + content extraction |
-| Database | SQLite (libsql / better-sqlite3) | Drizzle ORM, dual-driver architecture |
-| Web Framework | Next.js 15 (App Router, React 19) | Server-side rendering + SSE live logs |
-| CLI Framework | Commander.js | Command-line entry point |
-| Build System | pnpm Monorepo + TypeScript (ESM) | Workspace protocol for inter-package references |
+| Layer         | Technology                        | Description                                     |
+| ------------- | --------------------------------- | ----------------------------------------------- |
+| AI Engine     | Vercel AI SDK + Zod               | Tool-calling loop, multi-provider support       |
+| Crawler       | Playwright (Chromium)             | Headless browser scraping + content extraction  |
+| Database      | SQLite (libsql / better-sqlite3)  | Drizzle ORM, dual-driver architecture           |
+| Web Framework | Next.js 15 (App Router, React 19) | Server-side rendering + SSE live logs           |
+| CLI Framework | Commander.js                      | Command-line entry point                        |
+| Build System  | pnpm Monorepo + TypeScript (ESM)  | Workspace protocol for inter-package references |
 
 ## Quick Start
 
@@ -123,13 +123,13 @@ pnpm cli serve -p 3000
 
 **CLI Options:**
 
-| Option | Description | Default |
-|--------|-------------|---------|
-| `-t, --type` | Character type: `historical` or `fictional` | `historical` |
-| `-s, --source` | Character source (e.g., "Harry Potter series") | — |
-| `-r, --rounds` | Max event expansion rounds (dynamic convergence, may be fewer) | `5` |
-| `-a, --aliases` | Custom aliases, comma-separated | — |
-| `--db` | Database file path | `./data/shentan.db` |
+| Option          | Description                                                    | Default             |
+| --------------- | -------------------------------------------------------------- | ------------------- |
+| `-t, --type`    | Character type: `historical` or `fictional`                    | `historical`        |
+| `-s, --source`  | Character source (e.g., "Harry Potter series")                 | —                   |
+| `-r, --rounds`  | Max event expansion rounds (dynamic convergence, may be fewer) | `5`                 |
+| `-a, --aliases` | Custom aliases, comma-separated                                | —                   |
+| `--db`          | Database file path                                             | `./data/shentan.db` |
 
 ### Web Interface
 
@@ -150,6 +150,7 @@ Open `http://localhost:3000` in your browser:
 **JSON**: Complete character data with event list and reaction details.
 
 **Markdown**: Timeline document with:
+
 - Category labels (personal life, career, political activity, etc.)
 - Importance star ratings
 - Public reactions with sentiment indicators
@@ -220,60 +221,60 @@ All configuration is managed through the `.env` file. No additional config files
 
 #### Core Settings
 
-| Variable | Description | Default |
-|----------|-------------|---------|
-| `PROVIDER_DEFAULT` | Default provider name | First defined provider |
-| `MAX_TOKENS` | Global max AI output tokens | `8000` |
-| `DATABASE_PATH` | SQLite database path | `./data/shentan.db` |
-| `PORT` | Web service port | `3000` |
+| Variable           | Description                 | Default                |
+| ------------------ | --------------------------- | ---------------------- |
+| `PROVIDER_DEFAULT` | Default provider name       | First defined provider |
+| `MAX_TOKENS`       | Global max AI output tokens | `8000`                 |
+| `DATABASE_PATH`    | SQLite database path        | `./data/shentan.db`    |
+| `PORT`             | Web service port            | `3000`                 |
 
 #### Provider Definition
 
 Define AI providers via `PROVIDER_<NAME>_*` prefix (auto-discovery):
 
-| Variable Pattern | Description | Required |
-|-----------------|-------------|----------|
-| `PROVIDER_<NAME>_TYPE` | Provider type: `anthropic` / `openai` / `openai-compatible` | Yes |
-| `PROVIDER_<NAME>_MODEL` | Model name | Yes |
-| `PROVIDER_<NAME>_API_KEY` | API key (also supports `<NAME>_API_KEY`) | No |
-| `PROVIDER_<NAME>_BASE_URL` | Custom API endpoint (required for `openai-compatible`) | No |
+| Variable Pattern           | Description                                                 | Required |
+| -------------------------- | ----------------------------------------------------------- | -------- |
+| `PROVIDER_<NAME>_TYPE`     | Provider type: `anthropic` / `openai` / `openai-compatible` | Yes      |
+| `PROVIDER_<NAME>_MODEL`    | Model name                                                  | Yes      |
+| `PROVIDER_<NAME>_API_KEY`  | API key (also supports `<NAME>_API_KEY`)                    | No       |
+| `PROVIDER_<NAME>_BASE_URL` | Custom API endpoint (required for `openai-compatible`)      | No       |
 
 #### Search Engine
 
-| Variable | Description | Default |
-|----------|-------------|---------|
-| `SEARXNG_BASE_URL` | SearXNG service URL | (disabled) |
-| `SEARXNG_ENABLED` | Enable/disable | `true` |
-| `SEARXNG_CACHE_TTL` | Cache TTL in seconds | `1800` |
+| Variable            | Description          | Default    |
+| ------------------- | -------------------- | ---------- |
+| `SEARXNG_BASE_URL`  | SearXNG service URL  | (disabled) |
+| `SEARXNG_ENABLED`   | Enable/disable       | `true`     |
+| `SEARXNG_CACHE_TTL` | Cache TTL in seconds | `1800`     |
 
 #### API Retry & Throttling
 
 Automatically retries with exponential backoff on rate limits (429) or server errors (5xx), with a minimum interval between requests.
 
-| Variable | Description | Default |
-|----------|-------------|---------|
-| `RETRY_MAX_RETRIES` | Max retry attempts (`0` to disable) | `3` |
-| `RETRY_BASE_DELAY` | Initial retry delay (ms) | `2000` |
-| `RETRY_MAX_DELAY` | Max delay cap (ms) | `30000` |
-| `API_MIN_INTERVAL` | Min interval between requests (ms, `0` to disable) | `1000` |
+| Variable            | Description                                        | Default |
+| ------------------- | -------------------------------------------------- | ------- |
+| `RETRY_MAX_RETRIES` | Max retry attempts (`0` to disable)                | `3`     |
+| `RETRY_BASE_DELAY`  | Initial retry delay (ms)                           | `2000`  |
+| `RETRY_MAX_DELAY`   | Max delay cap (ms)                                 | `30000` |
+| `API_MIN_INTERVAL`  | Min interval between requests (ms, `0` to disable) | `1000`  |
 
 #### Agent Overrides (Optional)
 
-| Variable Pattern | Description | Default |
-|-----------------|-------------|---------|
-| `AGENT_<NAME>_MAX_ITERATIONS` | Max iterations | `25` |
-| `AGENT_<NAME>_MAX_TOKENS` | Max output tokens | Inherits global `MAX_TOKENS` |
+| Variable Pattern              | Description       | Default                      |
+| ----------------------------- | ----------------- | ---------------------------- |
+| `AGENT_<NAME>_MAX_ITERATIONS` | Max iterations    | `25`                         |
+| `AGENT_<NAME>_MAX_TOKENS`     | Max output tokens | Inherits global `MAX_TOKENS` |
 
 Agent names: `BIOGRAPHER` / `EVENT_EXPLORER` / `STATEMENT_COLLECTOR` / `REACTION_COLLECTOR`
 
 #### Quality Control (Optional)
 
-| Variable | Description | Default |
-|----------|-------------|---------|
-| `QUALITY_MAX_EXPLORE_ROUNDS` | Max exploration rounds | `5` |
-| `QUALITY_MIN_EXPLORE_ROUNDS` | Min exploration rounds | `2` |
-| `QUALITY_CONVERGENCE_THRESHOLD` | Convergence threshold | `2` |
-| `QUALITY_CONSECUTIVE_DRY_ROUNDS` | Consecutive dry rounds | `2` |
+| Variable                         | Description            | Default |
+| -------------------------------- | ---------------------- | ------- |
+| `QUALITY_MAX_EXPLORE_ROUNDS`     | Max exploration rounds | `5`     |
+| `QUALITY_MIN_EXPLORE_ROUNDS`     | Min exploration rounds | `2`     |
+| `QUALITY_CONVERGENCE_THRESHOLD`  | Convergence threshold  | `2`     |
+| `QUALITY_CONSECUTIVE_DRY_ROUNDS` | Consecutive dry rounds | `2`     |
 
 ### Coding Conventions
 

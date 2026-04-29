@@ -45,15 +45,24 @@ export async function tasksCommand(
         await listTasks(db, options.status);
         break;
       case 'show':
-        if (!taskId) { console.error('请指定任务ID'); process.exit(1); }
+        if (!taskId) {
+          console.error('请指定任务ID');
+          process.exit(1);
+        }
         await showTask(db, taskId);
         break;
       case 'logs':
-        if (!taskId) { console.error('请指定任务ID'); process.exit(1); }
+        if (!taskId) {
+          console.error('请指定任务ID');
+          process.exit(1);
+        }
         showLogs(db, taskId, options.lines ? parseInt(options.lines, 10) : 50);
         break;
       case 'cancel':
-        if (!taskId) { console.error('请指定任务ID'); process.exit(1); }
+        if (!taskId) {
+          console.error('请指定任务ID');
+          process.exit(1);
+        }
         await cancelTask(db, taskId);
         break;
       default:
@@ -83,8 +92,14 @@ async function listTasks(db: import('@shentan/core').Database, statusFilter?: st
     const id = t.id.substring(0, 8);
     const icon = STATUS_ICONS[t.status] ?? '❓';
     const label = STATUS_LABELS[t.status] ?? t.status;
-    const name = t.characterName.length > 16 ? t.characterName.substring(0, 16) + '...' : t.characterName;
-    const created = new Date(t.createdAt).toLocaleString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' });
+    const name =
+      t.characterName.length > 16 ? t.characterName.substring(0, 16) + '...' : t.characterName;
+    const created = new Date(t.createdAt).toLocaleString('zh-CN', {
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
     console.log(`  ${id}  ${icon} ${label.padEnd(6)}   ${name.padEnd(18)}   ${created}`);
   }
 
@@ -119,8 +134,10 @@ async function showTask(db: import('@shentan/core').Database, taskId: string) {
   if (task.characterId) console.log(`  角色ID:    ${task.characterId}`);
   console.log(`  最大轮次:  ${task.maxRounds ?? 5}`);
   console.log(`  创建时间:  ${new Date(task.createdAt).toLocaleString('zh-CN')}`);
-  if (task.startedAt) console.log(`  开始时间:  ${new Date(task.startedAt).toLocaleString('zh-CN')}`);
-  if (task.completedAt) console.log(`  完成时间:  ${new Date(task.completedAt).toLocaleString('zh-CN')}`);
+  if (task.startedAt)
+    console.log(`  开始时间:  ${new Date(task.startedAt).toLocaleString('zh-CN')}`);
+  if (task.completedAt)
+    console.log(`  完成时间:  ${new Date(task.completedAt).toLocaleString('zh-CN')}`);
   if (task.logPath) console.log(`  日志路径:  ${task.logPath}`);
   if (task.pid) console.log(`  PID:       ${task.pid}`);
   if (task.error) console.log(`  错误:      ${task.error}`);
@@ -133,10 +150,14 @@ async function showTask(db: import('@shentan/core').Database, taskId: string) {
       console.log(`    反应数: ${result.totalReactions}`);
       if (result.stages) {
         for (const s of result.stages) {
-          console.log(`    ${s.stage}: ${(s.duration / 1000).toFixed(1)}s ${s.success ? '✓' : '✗'}`);
+          console.log(
+            `    ${s.stage}: ${(s.duration / 1000).toFixed(1)}s ${s.success ? '✓' : '✗'}`,
+          );
         }
       }
-    } catch { /* ignore */ }
+    } catch {
+      /* ignore */
+    }
   }
 
   if (task.progress) {
@@ -146,7 +167,9 @@ async function showTask(db: import('@shentan/core').Database, taskId: string) {
       console.log(`    阶段: ${p.message || p.stage} (${p.stageIndex + 1}/${p.totalStages})`);
       if (p.eventsCount !== undefined) console.log(`    事件: ${p.eventsCount}`);
       if (p.roundIndex !== undefined) console.log(`    轮次: ${p.roundIndex}/${p.maxRounds}`);
-    } catch { /* ignore */ }
+    } catch {
+      /* ignore */
+    }
   }
 
   console.log();
@@ -166,7 +189,7 @@ async function showLogs(db: import('@shentan/core').Database, taskId: string, li
   }
 
   const content = readFileSync(logPath, 'utf-8');
-  const allLines = content.split('\n').filter(l => l.length > 0);
+  const allLines = content.split('\n').filter((l) => l.length > 0);
   const tail = allLines.slice(-lines);
 
   console.log(`\n📄 日志 (最后 ${tail.length} 行)\n`);

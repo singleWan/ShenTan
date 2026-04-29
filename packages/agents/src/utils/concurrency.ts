@@ -10,7 +10,9 @@ export async function runWithConcurrency<T>(
   limit: number,
   signal?: AbortSignal,
 ): Promise<Array<{ success: true; value: T } | { success: false; error: Error }>> {
-  const results: Array<{ success: true; value: T } | { success: false; error: Error }> = new Array(tasks.length);
+  const results: Array<{ success: true; value: T } | { success: false; error: Error }> = new Array(
+    tasks.length,
+  );
   let nextIndex = 0;
 
   async function runNext(): Promise<void> {
@@ -35,10 +37,7 @@ export async function runWithConcurrency<T>(
   }
 
   // 启动 min(limit, tasks.length) 个并发 worker
-  const workers = Array.from(
-    { length: Math.min(limit, tasks.length) },
-    () => runNext(),
-  );
+  const workers = Array.from({ length: Math.min(limit, tasks.length) }, () => runNext());
   await Promise.all(workers);
 
   return results;

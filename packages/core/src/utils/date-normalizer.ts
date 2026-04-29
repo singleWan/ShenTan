@@ -14,9 +14,21 @@ export interface NormalizedDate {
 // ─── 中文数字转阿拉伯数字 ────────────────────────────────
 
 const CHINESE_DIGITS: Record<string, number> = {
-  '零': 0, '〇': 0, '一': 1, '二': 2, '三': 3, '四': 4,
-  '五': 5, '六': 6, '七': 7, '八': 8, '九': 9,
-  '十': 10, '百': 100, '千': 1000, '万': 10000,
+  零: 0,
+  〇: 0,
+  一: 1,
+  二: 2,
+  三: 3,
+  四: 4,
+  五: 5,
+  六: 6,
+  七: 7,
+  八: 8,
+  九: 9,
+  十: 10,
+  百: 100,
+  千: 1000,
+  万: 10000,
 };
 
 export function chineseNumToArabic(text: string): number {
@@ -138,10 +150,29 @@ function parseHistoricalDate(dateText: string): NormalizedDate {
 
   // 12. 英文月名格式：June 14, 1946 或 14 June 1946
   const months: Record<string, number> = {
-    january: 1, february: 2, march: 3, april: 4, may: 5, june: 6,
-    july: 7, august: 8, september: 9, october: 10, november: 11, december: 12,
-    jan: 1, feb: 2, mar: 3, apr: 4, jun: 6, jul: 7, aug: 8,
-    sep: 9, oct: 10, nov: 11, dec: 12,
+    january: 1,
+    february: 2,
+    march: 3,
+    april: 4,
+    may: 5,
+    june: 6,
+    july: 7,
+    august: 8,
+    september: 9,
+    october: 10,
+    november: 11,
+    december: 12,
+    jan: 1,
+    feb: 2,
+    mar: 3,
+    apr: 4,
+    jun: 6,
+    jul: 7,
+    aug: 8,
+    sep: 9,
+    oct: 10,
+    nov: 11,
+    dec: 12,
   };
   m = text.match(/(\d{1,2})\s+(\w+)\s+(\d{4})/i);
   if (m) {
@@ -241,9 +272,7 @@ export function normalizeDate(
       return { dateSortable: trimmed, confidence: 'exact' };
     }
     // 尝试将已有的 dateSortable 当作日期文本来解析
-    const fromSortable = isFictional
-      ? parseFictionalDate(trimmed)
-      : parseHistoricalDate(trimmed);
+    const fromSortable = isFictional ? parseFictionalDate(trimmed) : parseHistoricalDate(trimmed);
     if (fromSortable.confidence !== 'unparseable') {
       return fromSortable;
     }
@@ -253,9 +282,7 @@ export function normalizeDate(
   if (dateText) {
     const trimmed = dateText.trim();
     if (trimmed) {
-      return isFictional
-        ? parseFictionalDate(trimmed)
-        : parseHistoricalDate(trimmed);
+      return isFictional ? parseFictionalDate(trimmed) : parseHistoricalDate(trimmed);
     }
   }
 
@@ -273,12 +300,9 @@ export function interpolateDateSortables(
   const isValidFn = isFictional ? isValidFictionalDateSortable : isValidHistoricalDateSortable;
 
   // 从已有 DB 事件中提取最后一个有效日期作为初始锚点
-  const sortedDbDates = existingDbDates
-    .filter((d): d is string => !!d && isValidFn(d))
-    .sort();
-  let lastAnchor: string | null = sortedDbDates.length > 0
-    ? sortedDbDates[sortedDbDates.length - 1]
-    : null;
+  const sortedDbDates = existingDbDates.filter((d): d is string => !!d && isValidFn(d)).sort();
+  let lastAnchor: string | null =
+    sortedDbDates.length > 0 ? sortedDbDates[sortedDbDates.length - 1] : null;
   let seqCounter = 0;
 
   for (const evt of batch) {
