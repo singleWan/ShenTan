@@ -1,4 +1,4 @@
-import { getCharacter, getCharacterEvents, getReactionsForEvents } from '@/lib/data';
+import { getCharacter, getCharacterEvents, getReactionsForEvents, getCharacterRelations } from '@/lib/data';
 import Link from 'next/link';
 import TimelineInteractive from '@/components/TimelineInteractive';
 import DeleteCharacterButton from '@/components/DeleteCharacterButton';
@@ -12,6 +12,7 @@ export default async function CharacterPage({ params }: { params: Promise<{ id: 
 
   const character = await getCharacter(characterId);
   const eventList = await getCharacterEvents(characterId);
+  const characterRelations = await getCharacterRelations(characterId);
 
   const reactionsMapRaw = await getReactionsForEvents(eventList.map(e => e.id));
   const reactionsMap: Record<number, { id: number; reactor: string; reactorType: string; reactionText: string | null; sentiment: string | null; eventId: number }[]> = {};
@@ -109,7 +110,32 @@ export default async function CharacterPage({ params }: { params: Promise<{ id: 
             <div className="stat-value">{totalReactions}</div>
             <div className="stat-label">反应</div>
           </div>
+          <div className="stat">
+            <div className="stat-value">{characterRelations.length}</div>
+            <div className="stat-label">关系</div>
+          </div>
         </div>
+
+        {characterRelations.length > 0 && (
+          <div className="relations-section">
+            <h3 className="relations-heading">角色关系</h3>
+            <div className="relations-list">
+              {characterRelations.map((rel) => (
+                <div key={rel.id} className="relation-item-inline">
+                  <span className="relation-arrow">{rel.fromCharacterId === characterId ? '&rarr;' : '&larr;'}</span>
+                  <Link
+                    href={`/characters/${rel.fromCharacterId === characterId ? rel.toCharacterId : rel.fromCharacterId}`}
+                    className="relation-target-name"
+                  >
+                    {rel.fromCharacterId === characterId ? rel.toName : rel.fromName}
+                  </Link>
+                  <span className="relation-type-badge">{rel.relationType}</span>
+                  {rel.description && <span className="relation-desc">{rel.description}</span>}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
 
       <TimelineInteractive

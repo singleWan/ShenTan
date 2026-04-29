@@ -2,8 +2,9 @@ import { tool } from 'ai';
 import { z } from 'zod';
 import { webSearch as doSearch, searchSocialMedia as doSearchSocialMedia, getDefaultSearchManager, type SearchResult } from '@shentan/crawler';
 import { scrapePage as doScrape } from '@shentan/crawler';
-import type { Database } from '@shentan/core';
+import { type Database } from '@shentan/core';
 import * as queries from '@shentan/core/queries';
+import * as relationsDb from '@shentan/core/relations';
 import { resolve, dirname } from 'node:path';
 import { downloadImage } from '../utils/download.js';
 
@@ -212,6 +213,32 @@ export function createTools(db: Database) {
     },
   });
 
+  const saveRelation = tool({
+    description: '保存角色之间的关系信息。当在内容中发现当前角色与其他已知角色之间的关系时使用。',
+    inputSchema: z.object({
+      characterId: z.number().describe('当前角色ID'),
+      relations: z.array(z.object({
+        targetName: z.string().describe('关联角色名称（必须是数据库中已存在的角色）'),
+        relationType: z.enum(['ally', 'enemy', 'family', 'colleague', 'rival', 'mentor', 'friend', 'other']).describe('关系类型'),
+        description: z.string().optional().describe('关系描述'),
+        sourceUrl: z.string().optional().describe('来源URL'),
+        confidence: z.string().optional().describe('置信度: high/medium/low'),
+      })).describe('要保存的关系列表'),
+    }),
+    execute: async ({ characterId, relations }) => {
+      try {
+        const { saved, skipped } = await relationsDb.saveRelations(db, { characterId, relations });
+        let msg = `成功保存 ${saved} 条关系。`;
+        if (skipped > 0) {
+          msg += ` 跳过 ${skipped} 条（目标角色不存在或关系已存在）。`;
+        }
+        return msg;
+      } catch (e) {
+        return `保存关系失败: ${(e as Error).message}`;
+      }
+    },
+  });
+
   return {
     webSearch,
     scrapePage,
@@ -220,6 +247,7 @@ export function createTools(db: Database) {
     getEvents,
     getReactions,
     updateCharacter,
+    saveRelation,
     all: {
       web_search: webSearch,
       scrape_page: scrapePage,
@@ -228,6 +256,7 @@ export function createTools(db: Database) {
       get_events: getEvents,
       get_reactions: getReactions,
       update_character: updateCharacter,
+      save_relation: saveRelation,
     },
   };
 }

@@ -1,6 +1,7 @@
 import { listCharacters } from '@/lib/data';
 import Link from 'next/link';
 import CharacterCard from '@/components/CharacterCard';
+import SearchBar from '@/components/SearchBar';
 
 export const dynamic = 'force-dynamic';
 
@@ -19,13 +20,19 @@ export default async function HomePage() {
           <h1 className="glitch">神探</h1>
           <p className="header-subtitle">AI驱动的角色生平事迹与事件反应可视化</p>
         </div>
-        <div className="header-btn-group">
-          <Link href="/tasks" className="btn-header">
-            任务管理
-          </Link>
-          <Link href="/collect" className="btn-header">
-            + 收集新角色
-          </Link>
+        <div className="header-right">
+          <SearchBar />
+          <div className="header-btn-group">
+            <Link href="/graph" className="btn-header">
+              关系网络
+            </Link>
+            <Link href="/tasks" className="btn-header">
+              任务管理
+            </Link>
+            <Link href="/collect" className="btn-header">
+              + 收集新角色
+            </Link>
+          </div>
         </div>
       </div>
 
