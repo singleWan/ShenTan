@@ -1,4 +1,13 @@
-import { getDb, characters, events, reactions, characterRelations } from './db';
+import {
+  getDb,
+  characters,
+  events,
+  reactions,
+  characterRelations,
+  characterTags,
+  collectionTasks,
+  backgroundTasks,
+} from './db';
 import { eq, desc, sql, inArray, like, and, or, gte } from 'drizzle-orm';
 
 export async function listCharacters() {
@@ -82,6 +91,18 @@ function collectChildEventIds(db: ReturnType<typeof getDb>, rootId: number): num
 
 export async function deleteCharacter(id: number) {
   const db = getDb();
+  // 删除关联的采集任务和后台任务
+  await db.delete(collectionTasks).where(eq(collectionTasks.characterId, id));
+  await db.delete(backgroundTasks).where(eq(backgroundTasks.characterId, id));
+  // 删除关系（角色可能是 from 或 to）
+  await db
+    .delete(characterRelations)
+    .where(
+      or(eq(characterRelations.fromCharacterId, id), eq(characterRelations.toCharacterId, id)),
+    );
+  // 删除角色标签关联
+  await db.delete(characterTags).where(eq(characterTags.characterId, id));
+  // 删除事件的所有反应
   await db
     .delete(reactions)
     .where(

@@ -192,6 +192,7 @@ const MIGRATIONS: Array<{ sql: string; postUpdate?: string }> = [
     )`,
   },
   { sql: `CREATE INDEX IF NOT EXISTS audit_log_action_idx ON audit_log(action)` },
+  { sql: `ALTER TABLE characters ADD COLUMN is_placeholder INTEGER NOT NULL DEFAULT 0;` },
 ];
 
 let _db: ReturnType<typeof drizzle> | null = null;

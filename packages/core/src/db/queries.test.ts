@@ -109,6 +109,51 @@ const INIT_TABLES = [
     created_at TEXT NOT NULL DEFAULT (datetime('now')),
     updated_at TEXT NOT NULL DEFAULT (datetime('now'))
   )`,
+  `CREATE TABLE IF NOT EXISTS background_tasks (
+    id TEXT PRIMARY KEY,
+    type TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'pending',
+    character_id INTEGER REFERENCES characters(id),
+    character_name TEXT NOT NULL,
+    config TEXT,
+    result TEXT,
+    error TEXT,
+    progress TEXT,
+    started_at TEXT,
+    completed_at TEXT,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+  )`,
+  `CREATE TABLE IF NOT EXISTS character_relations (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    from_character_id INTEGER NOT NULL REFERENCES characters(id),
+    to_character_id INTEGER NOT NULL REFERENCES characters(id),
+    relation_type TEXT NOT NULL,
+    description TEXT,
+    source_url TEXT,
+    confidence TEXT,
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  )`,
+  `CREATE TABLE IF NOT EXISTS tags (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL UNIQUE,
+    color TEXT,
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  )`,
+  `CREATE TABLE IF NOT EXISTS character_tags (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    character_id INTEGER NOT NULL REFERENCES characters(id),
+    tag_id INTEGER NOT NULL REFERENCES tags(id),
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  )`,
+  `CREATE TABLE IF NOT EXISTS audit_log (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    action TEXT NOT NULL,
+    entity_type TEXT NOT NULL,
+    entity_id INTEGER,
+    details TEXT,
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  )`,
 ];
 
 beforeEach(async () => {

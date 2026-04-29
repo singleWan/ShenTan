@@ -1,6 +1,6 @@
 import { eq, and, gte, desc, sql, like, or } from 'drizzle-orm';
 import type { Database } from './connection.js';
-import { characters, events, reactions, collectionTasks, tags, characterTags, auditLog } from './schema.js';
+import { characters, events, reactions, collectionTasks, backgroundTasks, characterRelations, tags, characterTags, auditLog } from './schema.js';
 import type {
   CharacterType,
   EventCategory,
@@ -387,7 +387,16 @@ export async function deleteEvent(db: Database, id: number) {
 }
 
 export async function deleteCharacter(db: Database, id: number) {
-  // 获取所有事件并逐个删除（含反应级联）
+  // 删除关联的采集任务和后台任务
+  await db.delete(collectionTasks).where(eq(collectionTasks.characterId, id));
+  await db.delete(backgroundTasks).where(eq(backgroundTasks.characterId, id));
+  // 删除关系（角色可能是 from 或 to）
+  await db
+    .delete(characterRelations)
+    .where(or(eq(characterRelations.fromCharacterId, id), eq(characterRelations.toCharacterId, id)));
+  // 删除角色标签关联
+  await db.delete(characterTags).where(eq(characterTags.characterId, id));
+  // 删除所有事件的反应，然后删除事件
   const allEvents = await db
     .select({ id: events.id })
     .from(events)
