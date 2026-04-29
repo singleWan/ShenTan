@@ -19,8 +19,10 @@ next-env.d.ts
 
 # AI / IDE auxiliary files
 CLAUDE.md
+AGENTS.md
 .claude/
 .zcf/
+.trellis/
 
 # OS
 .DS_Store

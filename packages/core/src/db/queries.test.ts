@@ -21,6 +21,7 @@ import {
   getChildEvents,
   saveReactions,
   getReactionsForEvent,
+  getReactionsForEvents,
   deleteReaction,
   deleteEvent,
   deleteCharacter,
@@ -691,5 +692,105 @@ describe('CollectionTask CRUD', () => {
     });
     const pending = await listCollectionTasks(db, { status: 'pending' });
     expect(pending.every((t) => t.status === 'pending')).toBe(true);
+  });
+});
+
+// --- 批量查询优化回归测试 ---
+describe('批量查询优化', () => {
+  it('getReactionsForEvents 批量获取反应计数', async () => {
+    const char = await createCharacter(db, { name: '批量反应角色', type: 'historical' });
+    const evt1 = await saveEvents(db, {
+      characterId: char.id,
+      events: [{ title: '事件A' }],
+    });
+    const evt2 = await saveEvents(db, {
+      characterId: char.id,
+      events: [{ title: '事件B' }],
+    });
+    await saveReactions(db, {
+      eventId: evt1.saved[0].id,
+      reactions: [
+        { reactor: '甲', reactorType: 'person' },
+        { reactor: '乙', reactorType: 'person' },
+      ],
+    });
+    await saveReactions(db, {
+      eventId: evt2.saved[0].id,
+      reactions: [{ reactor: '丙', reactorType: 'person' }],
+    });
+
+    const counts = await getReactionsForEvents(db, [evt1.saved[0].id, evt2.saved[0].id]);
+    expect(counts.get(evt1.saved[0].id)).toBe(2);
+    expect(counts.get(evt2.saved[0].id)).toBe(1);
+  });
+
+  it('getReactionsForEvents 空数组返回空 Map', async () => {
+    const counts = await getReactionsForEvents(db, []);
+    expect(counts.size).toBe(0);
+  });
+
+  it('getEvents 按 categories 过滤', async () => {
+    const char = await createCharacter(db, { name: '分类角色', type: 'historical' });
+    await saveEvents(db, {
+      characterId: char.id,
+      events: [
+        { title: '演讲', category: 'speech' },
+        { title: '政策', category: 'policy' },
+        { title: '战斗', category: 'conflict' },
+        { title: '声明', category: 'statement' },
+      ],
+    });
+    const result = await getEvents(db, {
+      characterId: char.id,
+      categories: ['speech', 'policy', 'statement'],
+    });
+    expect(result.length).toBe(3);
+    expect(result.every((e) => ['speech', 'policy', 'statement'].includes(e.category))).toBe(true);
+  });
+
+  it('deleteEvent 批量删除含子事件', async () => {
+    const char = await createCharacter(db, { name: '嵌套删除角色', type: 'historical' });
+    const parent = await saveEvents(db, {
+      characterId: char.id,
+      events: [{ title: '父事件' }],
+    });
+    await saveEvents(db, {
+      characterId: char.id,
+      events: [
+        { title: '子事件1', parentEventId: parent.saved[0].id },
+        { title: '子事件2', parentEventId: parent.saved[0].id },
+      ],
+    });
+    // 为子事件添加反应
+    const allEvents = await getEvents(db, { characterId: char.id });
+    const child1 = allEvents.find((e) => e.title === '子事件1');
+    if (child1) {
+      await saveReactions(db, {
+        eventId: child1.id,
+        reactions: [{ reactor: '测试', reactorType: 'person' }],
+      });
+    }
+
+    await deleteEvent(db, parent.saved[0].id);
+    const remaining = await getEvents(db, { characterId: char.id });
+    expect(remaining.length).toBe(0);
+  });
+
+  it('saveReactions 批量插入返回所有记录', async () => {
+    const char = await createCharacter(db, { name: '批量插入角色', type: 'historical' });
+    const evt = await saveEvents(db, {
+      characterId: char.id,
+      events: [{ title: '测试事件' }],
+    });
+    const result = await saveReactions(db, {
+      eventId: evt.saved[0].id,
+      reactions: Array.from({ length: 5 }, (_, i) => ({
+        reactor: `反应者${i}`,
+        reactorType: 'person' as const,
+        sentiment: 'neutral' as const,
+      })),
+    });
+    expect(result.length).toBe(5);
+    expect(result.every((r) => r.reactor.startsWith('反应者'))).toBe(true);
   });
 });

@@ -1,4 +1,4 @@
-import { eq, and, gte, desc, sql, like, or } from 'drizzle-orm';
+import { eq, and, gte, desc, sql, like, or, inArray } from 'drizzle-orm';
 import type { Database } from './connection.js';
 import { characters, events, reactions, collectionTasks, backgroundTasks, characterRelations, tags, characterTags, auditLog } from './schema.js';
 import type {
@@ -12,6 +12,10 @@ import type {
   CollectionTaskProgress,
 } from '../types/index.js';
 import { normalizeDate, interpolateDateSortables } from '../utils/date-normalizer.js';
+import { createLogger } from '../utils/structured-logger.js';
+
+const logger = createLogger({ category: 'queries' });
+const nowISO = () => new Date().toISOString();
 
 // Character 查询
 // 解析 source 字段，兼容旧数据（纯字符串）和新数据（JSON 数组）
@@ -21,7 +25,7 @@ export function parseSource(raw: string | null): string[] | null {
     const parsed = JSON.parse(raw);
     if (Array.isArray(parsed)) return parsed;
   } catch {
-    /* 旧数据：纯字符串 */
+    logger.debug('source 字段非 JSON，作为纯字符串处理');
   }
   return [raw];
 }
@@ -61,21 +65,21 @@ export async function getCharacterByName(db: Database, name: string) {
 export async function updateCharacterStatus(db: Database, id: number, status: string) {
   await db
     .update(characters)
-    .set({ status, updatedAt: new Date().toISOString() })
+    .set({ status, updatedAt: nowISO() })
     .where(eq(characters.id, id));
 }
 
 export async function updateCharacterDescription(db: Database, id: number, description: string) {
   await db
     .update(characters)
-    .set({ description, updatedAt: new Date().toISOString() })
+    .set({ description, updatedAt: nowISO() })
     .where(eq(characters.id, id));
 }
 
 export async function updateCharacterImageUrl(db: Database, id: number, imageUrl: string) {
   await db
     .update(characters)
-    .set({ imageUrl, updatedAt: new Date().toISOString() })
+    .set({ imageUrl, updatedAt: nowISO() })
     .where(eq(characters.id, id));
 }
 
@@ -84,7 +88,7 @@ export async function updateCharacterAliases(db: Database, id: number, aliases: 
     .update(characters)
     .set({
       aliases: JSON.stringify(aliases),
-      updatedAt: new Date().toISOString(),
+      updatedAt: nowISO(),
     })
     .where(eq(characters.id, id));
 }
@@ -137,6 +141,7 @@ function isDateClose(a: string | null, b: string | null, daysThreshold: number):
     if (isNaN(da.getTime()) || isNaN(db2.getTime())) return false;
     return Math.abs(da.getTime() - db2.getTime()) <= daysThreshold * 24 * 60 * 60 * 1000;
   } catch {
+    logger.debug('日期比较失败', { a, b });
     return false;
   }
 }
@@ -323,11 +328,13 @@ export async function getEvents(
     characterId: number;
     minImportance?: number;
     category?: string;
+    categories?: string[];
   },
 ) {
   const conditions = [eq(events.characterId, input.characterId)];
   if (input.minImportance) conditions.push(gte(events.importance, input.minImportance));
   if (input.category) conditions.push(eq(events.category, input.category));
+  if (input.categories?.length) conditions.push(inArray(events.category, input.categories));
 
   return db
     .select()
@@ -362,29 +369,31 @@ export async function saveReactions(
 ) {
   if (input.reactions.length === 0) return [];
 
-  return db.transaction(async (tx) => {
-    const results = [];
-    for (const r of input.reactions) {
-      const result = await tx
-        .insert(reactions)
-        .values({
-          eventId: input.eventId,
-          reactor: r.reactor,
-          reactorType: r.reactorType,
-          reactionText: r.reactionText ?? null,
-          sentiment: r.sentiment ?? null,
-          sourceUrl: r.sourceUrl ?? null,
-          sourceTitle: r.sourceTitle ?? null,
-        })
-        .returning();
-      results.push(result[0]!);
-    }
-    return results;
-  });
+  const values = input.reactions.map((r) => ({
+    eventId: input.eventId,
+    reactor: r.reactor,
+    reactorType: r.reactorType,
+    reactionText: r.reactionText ?? null,
+    sentiment: r.sentiment ?? null,
+    sourceUrl: r.sourceUrl ?? null,
+    sourceTitle: r.sourceTitle ?? null,
+  }));
+
+  return db.insert(reactions).values(values).returning();
 }
 
 export async function getReactionsForEvent(db: Database, eventId: number) {
   return db.select().from(reactions).where(eq(reactions.eventId, eventId));
+}
+
+export async function getReactionsForEvents(db: Database, eventIds: number[]) {
+  if (eventIds.length === 0) return new Map<number, number>();
+  const rows = await db
+    .select({ eventId: reactions.eventId, count: sql<number>`count(*)`.as('count') })
+    .from(reactions)
+    .where(inArray(reactions.eventId, eventIds))
+    .groupBy(reactions.eventId);
+  return new Map(rows.map((r) => [r.eventId, r.count]));
 }
 
 // 删除操作
@@ -393,40 +402,47 @@ export async function deleteReaction(db: Database, id: number) {
 }
 
 export async function deleteEvent(db: Database, id: number) {
-  // 删除该事件的所有反应
-  await db.delete(reactions).where(eq(reactions.eventId, id));
-  // 递归删除子事件及其反应
-  const children = await db
-    .select({ id: events.id })
-    .from(events)
-    .where(eq(events.parentEventId, id));
-  for (const child of children) {
-    await deleteEvent(db, child.id);
-  }
-  // 删除事件本身
-  await db.delete(events).where(eq(events.id, id));
+  await db.transaction(async (tx) => {
+    // 收集所有后代事件 ID（广度优先，避免递归栈溢出）
+    const allIds = [id];
+    let parentIdBatch: number[] = [id];
+    while (parentIdBatch.length > 0) {
+      const children = await tx
+        .select({ id: events.id })
+        .from(events)
+        .where(inArray(events.parentEventId, parentIdBatch));
+      parentIdBatch = children.map((c) => c.id);
+      allIds.push(...parentIdBatch);
+    }
+    // 批量删除所有相关 reactions 和 events
+    await tx.delete(reactions).where(inArray(reactions.eventId, allIds));
+    await tx.delete(events).where(inArray(events.id, allIds));
+  });
 }
 
 export async function deleteCharacter(db: Database, id: number) {
-  // 删除关联的采集任务和后台任务
-  await db.delete(collectionTasks).where(eq(collectionTasks.characterId, id));
-  await db.delete(backgroundTasks).where(eq(backgroundTasks.characterId, id));
-  // 删除关系（角色可能是 from 或 to）
-  await db
-    .delete(characterRelations)
-    .where(or(eq(characterRelations.fromCharacterId, id), eq(characterRelations.toCharacterId, id)));
-  // 删除角色标签关联
-  await db.delete(characterTags).where(eq(characterTags.characterId, id));
-  // 删除所有事件的反应，然后删除事件
-  const allEvents = await db
-    .select({ id: events.id })
-    .from(events)
-    .where(eq(events.characterId, id));
-  for (const evt of allEvents) {
-    await db.delete(reactions).where(eq(reactions.eventId, evt.id));
-  }
-  await db.delete(events).where(eq(events.characterId, id));
-  await db.delete(characters).where(eq(characters.id, id));
+  await db.transaction(async (tx) => {
+    // 删除关联的采集任务和后台任务
+    await tx.delete(collectionTasks).where(eq(collectionTasks.characterId, id));
+    await tx.delete(backgroundTasks).where(eq(backgroundTasks.characterId, id));
+    // 删除关系（角色可能是 from 或 to）
+    await tx
+      .delete(characterRelations)
+      .where(or(eq(characterRelations.fromCharacterId, id), eq(characterRelations.toCharacterId, id)));
+    // 删除角色标签关联
+    await tx.delete(characterTags).where(eq(characterTags.characterId, id));
+    // 批量删除所有事件的 reactions，然后删除事件
+    const allEvents = await tx
+      .select({ id: events.id })
+      .from(events)
+      .where(eq(events.characterId, id));
+    if (allEvents.length > 0) {
+      const eventIds = allEvents.map((e) => e.id);
+      await tx.delete(reactions).where(inArray(reactions.eventId, eventIds));
+    }
+    await tx.delete(events).where(eq(events.characterId, id));
+    await tx.delete(characters).where(eq(characters.id, id));
+  });
 }
 
 // 导出完整角色数据
@@ -680,12 +696,15 @@ export async function resolveReviewEvent(
         try {
           mergedFrom = target[0].mergedFromIds ? JSON.parse(target[0].mergedFromIds) : [];
         } catch {
-          /* 损坏数据，重新初始化 */
+          logger.warn('mergedFromIds JSON 解析失败，重新初始化', {
+            targetId: mergeTargetId,
+            raw: target[0].mergedFromIds,
+          });
         }
         mergedFrom.push(eventId);
         const updates: Record<string, unknown> = {
           mergedFromIds: JSON.stringify(mergedFrom),
-          updatedAt: new Date().toISOString(),
+          updatedAt: nowISO(),
         };
         if (!target[0].description && source[0].description)
           updates.description = source[0].description;

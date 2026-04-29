@@ -433,24 +433,15 @@ export async function runOrchestrator(
       message: '发言/政策/声明收集',
     });
 
-    // 查询已有发言/政策/声明事件，注入到 StatementCollector
-    const existingSpeechEvents = await queries.getEvents(db, {
-      characterId,
-      category: 'speech',
-    });
-    const existingPolicyEvents = await queries.getEvents(db, {
-      characterId,
-      category: 'policy',
-    });
+    // 查询已有发言/政策/声明事件（单次查询替代 3 次分类查询）
     const existingStatementEvents = await queries.getEvents(db, {
       characterId,
-      category: 'statement',
+      categories: ['speech', 'policy', 'statement'],
     });
-    const existingStatements = [
-      ...existingSpeechEvents.map((e) => ({ title: e.title, category: 'speech' })),
-      ...existingPolicyEvents.map((e) => ({ title: e.title, category: 'policy' })),
-      ...existingStatementEvents.map((e) => ({ title: e.title, category: 'statement' })),
-    ];
+    const existingStatements = existingStatementEvents.map((e) => ({
+      title: e.title,
+      category: e.category,
+    }));
     if (existingStatements.length > 0) {
       log(`已有 ${existingStatements.length} 条发言/政策/声明记录，注入到收集上下文`);
     }
@@ -477,11 +468,8 @@ export async function runOrchestrator(
       duration: Date.now() - statementStart,
     });
 
-    // 生成发言/政策摘要供 ReactionCollector 使用
-    const speechEvents = await queries.getEvents(db, { characterId, category: 'speech' });
-    const policyEvents = await queries.getEvents(db, { characterId, category: 'policy' });
-    const statementEvents = await queries.getEvents(db, { characterId, category: 'statement' });
-    const keyStatements = [...speechEvents, ...policyEvents, ...statementEvents]
+    // 生成发言/政策摘要供 ReactionCollector 使用（复用上面已查询的数据）
+    const keyStatements = existingStatementEvents
       .filter((e) => e.importance >= 3)
       .slice(0, 10);
     if (keyStatements.length > 0) {
@@ -503,16 +491,14 @@ export async function runOrchestrator(
     minImportance: 3,
   });
 
-  // 继续模式：并行查询已有反应，过滤掉已收集的事件
+  // 继续模式：批量查询已有反应，过滤掉已收集的事件
   let filteredEventsForReaction = eventsForReaction;
   if (isContinuation) {
-    const reactionChecks = await Promise.all(
-      eventsForReaction.map((evt) =>
-        queries.getReactionsForEvent(db, evt.id).then((r) => ({ id: evt.id, count: r.length })),
-      ),
+    const reactionCounts = await queries.getReactionsForEvents(
+      db,
+      eventsForReaction.map((e) => e.id),
     );
-    const eventsWithReactions = new Set(reactionChecks.filter((r) => r.count > 0).map((r) => r.id));
-    filteredEventsForReaction = eventsForReaction.filter((e) => !eventsWithReactions.has(e.id));
+    filteredEventsForReaction = eventsForReaction.filter((e) => !(reactionCounts.get(e.id) ?? 0));
     if (filteredEventsForReaction.length < eventsForReaction.length) {
       log(
         `继续模式: 跳过 ${eventsForReaction.length - filteredEventsForReaction.length} 个已有反应的事件`,
@@ -595,10 +581,14 @@ export async function runOrchestrator(
 
   // 统计结果（批量查询所有反应，避免 N+1）
   const allEvents = await queries.getEvents(db, { characterId });
-  const allReactionsChecks = await Promise.all(
-    allEvents.map((evt) => queries.getReactionsForEvent(db, evt.id)),
+  const eventIds = allEvents.map((e) => e.id);
+  const reactionCounts = eventIds.length > 0
+    ? await queries.getReactionsForEvents(db, eventIds)
+    : new Map<number, number>();
+  const totalReactions = allEvents.reduce(
+    (sum, evt) => sum + (reactionCounts.get(evt.id) ?? 0),
+    0,
   );
-  const totalReactions = allReactionsChecks.reduce((sum, r) => sum + r.length, 0);
 
   const success = allEvents.length >= 5;
   await queries.updateCharacterStatus(db, characterId, success ? 'completed' : 'failed');

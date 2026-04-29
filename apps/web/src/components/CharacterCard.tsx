@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { memo, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { statusLabel, formatSourceDisplay } from '@/lib/labels';
@@ -15,7 +15,7 @@ interface CharacterCardProps {
   imageUrl: string | null;
 }
 
-export default function CharacterCard({
+function CharacterCardInner({
   id,
   name,
   type,
@@ -103,3 +103,6 @@ export default function CharacterCard({
     </>
   );
 }
+
+const CharacterCard = memo(CharacterCardInner);
+export default CharacterCard;
