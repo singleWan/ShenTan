@@ -235,7 +235,7 @@ export async function getRelationGraph() {
   if (charIds.length === 0) return { nodes: [], edges: [] };
 
   const nodes = db
-    .select({ id: characters.id, name: characters.name, type: characters.type })
+    .select({ id: characters.id, name: characters.name, type: characters.type, isPlaceholder: characters.isPlaceholder })
     .from(characters)
     .where(inArray(characters.id, charIds))
     .all();
@@ -247,6 +247,8 @@ export async function getRelationGraph() {
       to: r.toCharacterId,
       type: r.relationType,
       description: r.description,
+      sourceUrl: r.sourceUrl,
+      confidence: r.confidence,
     })),
   };
 }

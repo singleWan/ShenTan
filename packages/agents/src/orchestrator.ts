@@ -13,7 +13,13 @@ import { DEFAULT_QUALITY_CONFIG } from './config/types.js';
 import { createModel } from './provider/factory.js';
 import { createResilientModel } from './utils/resilient-model.js';
 import { getDefaultSearchManager } from '@shentan/crawler';
-import { shouldContinue, formatQualityReport, type RoundQuality } from './quality-assessor.js';
+import {
+  shouldContinue,
+  formatQualityReport,
+  scoreContentQuality,
+  type RoundQuality,
+} from './quality-assessor.js';
+import type { PreviousRoundSummary } from './event-explorer.js';
 import { runWithConcurrency } from './utils/concurrency.js';
 
 export interface OrchestratorOptions {
@@ -144,6 +150,57 @@ export async function runOrchestrator(
   if (isContinuation) log(`模式: 继续已有角色收集`);
   log(`${'='.repeat(60)}\n`);
 
+  // 预处理: 读取同类角色的审核历史，生成反馈提示
+  let reviewFeedback = '';
+  try {
+    const history = await queries.getReviewHistory(db, {
+      characterType: options.characterType,
+      limit: 30,
+    });
+    if (history.length > 0) {
+      const deletedCategories = new Map<string, number>();
+      const deletedSources = new Map<string, number>();
+      for (const entry of history) {
+        if (!entry.details) continue;
+        try {
+          const detail = JSON.parse(entry.details);
+          if (detail.category) {
+            deletedCategories.set(
+              detail.category,
+              (deletedCategories.get(detail.category) ?? 0) + 1,
+            );
+          }
+          if (detail.sourceUrl) {
+            const domain = new URL(detail.sourceUrl).hostname;
+            deletedSources.set(domain, (deletedSources.get(domain) ?? 0) + 1);
+          }
+        } catch {
+          // 非JSON或URL解析失败
+        }
+      }
+      const parts: string[] = [];
+      if (deletedCategories.size > 0) {
+        const top = [...deletedCategories.entries()]
+          .sort((a, b) => b[1] - a[1])
+          .slice(0, 3)
+          .map(([cat, count]) => `${cat}(${count}次)`);
+        parts.push(`同类角色中常被删除的分类: ${top.join('、')}`);
+      }
+      if (deletedSources.size > 0) {
+        const top = [...deletedSources.entries()]
+          .sort((a, b) => b[1] - a[1])
+          .slice(0, 3)
+          .map(([domain, count]) => `${domain}(${count}次)`);
+        parts.push(`低质量来源域名: ${top.join('、')}`);
+      }
+      if (parts.length > 0) {
+        reviewFeedback = `\n历史审核反馈（请优先避免以下低质量内容）:\n${parts.join('\n')}\n`;
+      }
+    }
+  } catch {
+    // 审核历史读取失败不影响主流程
+  }
+
   // 预处理: 解析并合并别名
   let aliases: CharacterAlias[] = [];
 
@@ -220,6 +277,7 @@ export async function runOrchestrator(
       options.source,
       signal,
       bioCfg.providerOptions,
+      reviewFeedback,
     );
     stages.push({
       stage: 'biographer',
@@ -242,6 +300,7 @@ export async function runOrchestrator(
 
   // 阶段 2: 事件拓展（动态质量驱动轮次）
   const roundQualities: RoundQuality[] = [];
+  const previousRoundSummaries: PreviousRoundSummary[] = [];
   let prevEventCount = (await queries.getEvents(db, { characterId: characterId })).length;
   let round = 0;
 
@@ -276,17 +335,74 @@ export async function runOrchestrator(
       options.source,
       signal,
       exploreCfg.providerOptions,
+      previousRoundSummaries.length > 0 ? previousRoundSummaries : undefined,
     );
 
     // 评估本轮质量
-    const currentEventCount = (await queries.getEvents(db, { characterId: characterId })).length;
+    const currentEvents = await queries.getEvents(db, { characterId: characterId });
+    const currentEventCount = currentEvents.length;
     const newEvents = Math.max(0, currentEventCount - prevEventCount);
+
+    // 找到本轮新增事件（用于内容质量评分）
+    const newEventList = newEvents > 0 ? currentEvents.slice(-newEvents) : [];
+
+    // LLM 内容质量评分
+    let contentQualityScore: number | undefined;
+    if (newEventList.length > 0) {
+      try {
+        contentQualityScore = await scoreContentQuality(exploreCfg.model, newEventList);
+        log(`内容质量评分: ${contentQualityScore.toFixed(2)}`);
+      } catch {
+        // 评分失败不影响主流程
+      }
+    }
+
     const quality: RoundQuality = {
       roundNumber: round,
       newEventsCount: newEvents,
       totalEventsCount: currentEventCount,
+      contentQualityScore,
     };
     roundQualities.push(quality);
+
+    // 生成轮次摘要供下一轮使用
+    if (newEvents > 0) {
+      const searchDirections: string[] = [];
+      const gapsIdentified: string[] = [];
+      // 从 Agent 返回的消息中提取探索方向和空白
+      const msgLines = exploreResult.message.split('\n');
+      for (const line of msgLines) {
+        const trimmed = line.trim();
+        if (trimmed.includes('搜索') || trimmed.includes('查询') || trimmed.includes('查找')) {
+          const keywords = trimmed.replace(/^[-*\d.)\s]+/, '').substring(0, 50);
+          if (keywords) searchDirections.push(keywords);
+        }
+      }
+      // 从事件标题中提取空白领域
+      const coveredCategories = new Set(newEventList.map((e) => e.category));
+      const allCategories = [
+        'life',
+        'career',
+        'political',
+        'conflict',
+        'achievement',
+        'scandal',
+        'speech',
+        'policy',
+        'statement',
+        'rumor',
+      ];
+      for (const cat of allCategories) {
+        if (!coveredCategories.has(cat)) gapsIdentified.push(cat);
+      }
+
+      previousRoundSummaries.push({
+        roundNumber: round,
+        newEventsCount: newEvents,
+        searchDirections: searchDirections.slice(0, 5),
+        gapsIdentified: gapsIdentified.slice(0, 5),
+      });
+    }
 
     log(`第 ${round} 轮完成: 新增 ${newEvents} 个事件，总计 ${currentEventCount} 个`);
 
@@ -300,13 +416,14 @@ export async function runOrchestrator(
     prevEventCount = currentEventCount;
 
     // 判断是否继续
-    if (!shouldContinue(roundQualities, qualityConfig)) {
+    if (!shouldContinue(roundQualities, qualityConfig, options.characterType)) {
       log(`动态收敛: ${formatQualityReport(roundQualities)}，停止拓展`);
       break;
     }
   }
 
   // 阶段 3: 发言/政策/声明专项收集
+  let statementSummary: string | undefined;
   if (!options.skipStatementCollection && !signal?.aborted) {
     const statementStart = Date.now();
     log('\n--- 阶段 3: 发言/政策/声明收集 ---');
@@ -315,6 +432,29 @@ export async function runOrchestrator(
       stageIndex: qualityConfig.maxExploreRounds! + 1,
       message: '发言/政策/声明收集',
     });
+
+    // 查询已有发言/政策/声明事件，注入到 StatementCollector
+    const existingSpeechEvents = await queries.getEvents(db, {
+      characterId,
+      category: 'speech',
+    });
+    const existingPolicyEvents = await queries.getEvents(db, {
+      characterId,
+      category: 'policy',
+    });
+    const existingStatementEvents = await queries.getEvents(db, {
+      characterId,
+      category: 'statement',
+    });
+    const existingStatements = [
+      ...existingSpeechEvents.map((e) => ({ title: e.title, category: 'speech' })),
+      ...existingPolicyEvents.map((e) => ({ title: e.title, category: 'policy' })),
+      ...existingStatementEvents.map((e) => ({ title: e.title, category: 'statement' })),
+    ];
+    if (existingStatements.length > 0) {
+      log(`已有 ${existingStatements.length} 条发言/政策/声明记录，注入到收集上下文`);
+    }
+
     const statementResult = await runStatementCollector(
       statementCfg.model,
       db,
@@ -328,6 +468,7 @@ export async function runOrchestrator(
       options.source,
       signal,
       statementCfg.providerOptions,
+      existingStatements,
     );
     stages.push({
       stage: 'statement-collector',
@@ -335,6 +476,18 @@ export async function runOrchestrator(
       message: statementResult.message.substring(0, 200),
       duration: Date.now() - statementStart,
     });
+
+    // 生成发言/政策摘要供 ReactionCollector 使用
+    const speechEvents = await queries.getEvents(db, { characterId, category: 'speech' });
+    const policyEvents = await queries.getEvents(db, { characterId, category: 'policy' });
+    const statementEvents = await queries.getEvents(db, { characterId, category: 'statement' });
+    const keyStatements = [...speechEvents, ...policyEvents, ...statementEvents]
+      .filter((e) => e.importance >= 3)
+      .slice(0, 10);
+    if (keyStatements.length > 0) {
+      statementSummary = keyStatements.map((e) => `[${e.category}] ${e.title}`).join('\n');
+      log(`生成 ${keyStatements.length} 条发言/政策摘要供反应收集参考`);
+    }
   }
 
   // 阶段 4: 逐事件反应收集
@@ -401,6 +554,7 @@ export async function runOrchestrator(
         source: options.source,
         signal,
         providerOptions: reactionCfg.providerOptions,
+        statementSummary,
       });
 
       const evtReactions = await queries.getReactionsForEvent(db, evt.id);

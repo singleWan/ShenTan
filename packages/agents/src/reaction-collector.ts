@@ -31,6 +31,7 @@ export interface PerEventOptions {
   source?: string[];
   signal?: AbortSignal;
   providerOptions?: ProviderOptions;
+  statementSummary?: string;
 }
 
 export async function runReactionCollectorForEvent(opts: PerEventOptions): Promise<AgentRunResult> {
@@ -48,6 +49,7 @@ export async function runReactionCollectorForEvent(opts: PerEventOptions): Promi
     source,
     signal,
     providerOptions,
+    statementSummary,
   } = opts;
   const log = (msg: string) => onLog?.(msg);
   log(
@@ -77,12 +79,17 @@ export async function runReactionCollectorForEvent(opts: PerEventOptions): Promi
     .filter(Boolean)
     .join('\n');
 
+  let statementSection = '';
+  if (statementSummary) {
+    statementSection = `\n角色的关键发言/政策摘要（可用于扩展搜索关键词）：\n${statementSummary}\n`;
+  }
+
   const userPrompt = `请全面收集以下事件的各方反应。
 
 角色: "${characterName}" (ID: ${characterId})
 角色类型: ${characterType === 'fictional' ? '虚构角色（不要使用 social 搜索模式）' : '历史人物（可使用 social 模式搜索社交媒体）'}
 ${getDateContext()}
-${sourceSection}${aliasSection}
+${sourceSection}${aliasSection}${statementSection}
 事件信息：
 ${eventDetail}
 

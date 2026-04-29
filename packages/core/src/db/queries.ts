@@ -1,6 +1,6 @@
 import { eq, and, gte, desc, sql, like, or } from 'drizzle-orm';
 import type { Database } from './connection.js';
-import { characters, events, reactions, collectionTasks, tags, characterTags } from './schema.js';
+import { characters, events, reactions, collectionTasks, tags, characterTags, auditLog } from './schema.js';
 import type {
   CharacterType,
   EventCategory,
@@ -704,4 +704,30 @@ export async function getCharacterTags(db: Database, characterId: number) {
     .from(characterTags)
     .innerJoin(tags, eq(characterTags.tagId, tags.id))
     .where(eq(characterTags.characterId, characterId));
+}
+
+// Audit log
+export async function getReviewHistory(
+  db: Database,
+  options?: { characterType?: string; limit?: number },
+): Promise<Array<{ action: string; details: string | null; createdAt: string }>> {
+  const rows = await db
+    .select({ action: auditLog.action, details: auditLog.details, createdAt: auditLog.createdAt })
+    .from(auditLog)
+    .where(sql`${auditLog.action} IN ('batch_delete', 'resolve_merge')`)
+    .orderBy(desc(auditLog.createdAt))
+    .limit(options?.limit ?? 50);
+  return rows;
+}
+
+export async function writeAuditLog(
+  db: Database,
+  input: { action: string; entityType: string; entityId?: number; details?: string },
+) {
+  await db.insert(auditLog).values({
+    action: input.action,
+    entityType: input.entityType,
+    entityId: input.entityId ?? null,
+    details: input.details ?? null,
+  });
 }

@@ -48,6 +48,23 @@ export async function saveRelations(
     .where(inArray(characters.name, targetNames));
   const nameToId = new Map(targetChars.map((c) => [c.name, c.id]));
 
+  // 为未找到的目标角色创建 placeholder
+  const missingNames = targetNames.filter((n) => !nameToId.has(n));
+  for (const name of missingNames) {
+    const result = await db
+      .insert(characters)
+      .values({
+        name,
+        type: 'historical',
+        status: 'placeholder',
+        isPlaceholder: 1,
+      })
+      .returning();
+    if (result[0]) {
+      nameToId.set(name, result[0].id);
+    }
+  }
+
   // 预加载已有关系
   const existingRels = await db
     .select({

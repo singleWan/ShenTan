@@ -1,5 +1,5 @@
 export { runBiographer, type AgentRunResult } from './biographer.js';
-export { runEventExplorer } from './event-explorer.js';
+export { runEventExplorer, type PreviousRoundSummary } from './event-explorer.js';
 export { runStatementCollector } from './statement-collector.js';
 export { runReactionCollectorForEvent, type PerEventOptions } from './reaction-collector.js';
 export {
@@ -21,7 +21,7 @@ export {
   parseUserAliases,
   formatAliasesForPrompt,
 } from './alias-resolver.js';
-export { shouldContinue, formatQualityReport, type RoundQuality } from './quality-assessor.js';
+export { shouldContinue, formatQualityReport, scoreContentQuality, type RoundQuality } from './quality-assessor.js';
 export { getDateContext } from './date-context.js';
 export { resolveConfig, getProviderConfig, getAgentModelConfig } from './config/loader.js';
 export { createModel } from './provider/factory.js';

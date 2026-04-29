@@ -146,6 +146,7 @@ const MIGRATIONS: Array<{ sql: string; postUpdate?: string }> = [
   { sql: `ALTER TABLE events ADD COLUMN review_status TEXT;` },
   { sql: `ALTER TABLE events ADD COLUMN duplicate_of INTEGER;` },
   { sql: `ALTER TABLE events ADD COLUMN merged_from_ids TEXT;` },
+  { sql: `ALTER TABLE characters ADD COLUMN is_placeholder INTEGER NOT NULL DEFAULT 0;` },
 ];
 
 export async function initDatabase(dbPath?: string) {

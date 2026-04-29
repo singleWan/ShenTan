@@ -20,6 +20,7 @@ export async function runStatementCollector(
   source?: string[],
   signal?: AbortSignal,
   providerOptions?: ProviderOptions,
+  existingStatements?: Array<{ title: string; category: string }>,
 ): Promise<AgentRunResult> {
   const log = (msg: string) => onLog?.(msg);
   log(`[StatementCollector] 开始收集 "${characterName}" 的发言、政策与声明...`);
@@ -30,10 +31,25 @@ export async function runStatementCollector(
     '请优先从该作品中搜索角色的发言、声明和相关信息。',
   );
 
+  let existingSection = '';
+  if (existingStatements && existingStatements.length > 0) {
+    const grouped = new Map<string, string[]>();
+    for (const s of existingStatements) {
+      const list = grouped.get(s.category) ?? [];
+      list.push(s.title);
+      grouped.set(s.category, list);
+    }
+    const lines = Array.from(grouped.entries()).map(
+      ([cat, titles]) =>
+        `${cat} (${titles.length}): ${titles.slice(0, 10).join('、')}${titles.length > 10 ? ` 等${titles.length}条` : ''}`,
+    );
+    existingSection = `\n已有发言/政策/声明记录（请勿重复收集）：\n${lines.join('\n')}\n请聚焦于上述列表中未覆盖的发言、政策和声明。\n`;
+  }
+
   const userPrompt = `请全面收集角色 "${characterName}" (ID: ${characterId}) 的公开发言、政策决策、公开声明以及坊间流传的重要信息。
 角色类型: ${characterType === 'fictional' ? '虚构角色（无真实社交账号，不要搜索社交媒体）' : '历史人物（可搜索微博、X/Twitter、Facebook等社交媒体）'}
 ${getDateContext()}
-${sourceSection}${aliasSection}
+${sourceSection}${aliasSection}${existingSection}
 步骤：
 1. 先用 get_events 获取已有事件作为上下文
 2. 搜索角色的重要发言、演讲、著名言论

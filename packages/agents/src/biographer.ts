@@ -22,6 +22,7 @@ export async function runBiographer(
   source?: string[],
   signal?: AbortSignal,
   providerOptions?: ProviderOptions,
+  reviewFeedback?: string,
 ): Promise<AgentRunResult> {
   const log = (msg: string) => onLog?.(msg);
   log(`[Biographer] 开始收集 "${characterName}" 的生平事迹...`);
@@ -31,11 +32,12 @@ export async function runBiographer(
     source,
     '请优先从该作品中搜索和提取角色的生平事件与相关信息。',
   );
+  const feedbackSection = reviewFeedback ?? '';
 
   const userPrompt = `请收集角色 "${characterName}" 的生平事迹。
 角色类型: ${characterType === 'fictional' ? '小说/虚构角色' : '历史人物'}
 ${getDateContext()}
-${sourceSection}${aliasSection}
+${sourceSection}${aliasSection}${feedbackSection}
 请按以下步骤执行：
 1. 先搜索基本生平信息
 2. 爬取权威来源获取详细内容

@@ -17,9 +17,11 @@ interface ReviewEvent {
 export default function ReviewPage() {
   const [events, setEvents] = useState<ReviewEvent[]>([]);
   const [loading, setLoading] = useState(true);
-  const [processing, setProcessing] = useState<number | null>(null);
+  const [processing, setProcessing] = useState<Set<number>>(new Set());
   const [error, setError] = useState<string | null>(null);
   const [mergeTarget, setMergeTarget] = useState<number | null>(null);
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
+  const [focusedIndex, setFocusedIndex] = useState(0);
 
   const fetchPending = useCallback(async () => {
     try {
@@ -27,6 +29,8 @@ export default function ReviewPage() {
       if (!res.ok) throw new Error('获取失败');
       const data = await res.json();
       setEvents(data.events ?? []);
+      setSelectedIds(new Set());
+      setFocusedIndex(0);
     } catch (e) {
       setError((e as Error).message);
     } finally {
@@ -38,8 +42,68 @@ export default function ReviewPage() {
     fetchPending();
   }, [fetchPending]);
 
+  // 键盘快捷键
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (events.length === 0) return;
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+
+      const focused = events[focusedIndex];
+
+      switch (e.key) {
+        case 'j':
+        case 'ArrowDown':
+          e.preventDefault();
+          setFocusedIndex((i) => Math.min(i + 1, events.length - 1));
+          break;
+        case 'k':
+        case 'ArrowUp':
+          e.preventDefault();
+          setFocusedIndex((i) => Math.max(i - 1, 0));
+          break;
+        case 'Enter':
+          if (focused) {
+            e.preventDefault();
+            handleAction(focused.id, 'keep');
+          }
+          break;
+        case 'm':
+        case 'M':
+          if (focused && mergeTarget === null) {
+            e.preventDefault();
+            setMergeTarget(focused.id);
+          }
+          break;
+        case ' ':
+          if (focused) {
+            e.preventDefault();
+            toggleSelect(focused.id);
+          }
+          break;
+        case 'A':
+          if (e.shiftKey) {
+            e.preventDefault();
+            const allIds = new Set(events.map((e) => e.id));
+            setSelectedIds(selectedIds.size === events.length ? new Set() : allIds);
+          }
+          break;
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [events, focusedIndex, mergeTarget, selectedIds]);
+
+  const toggleSelect = (id: number) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
   const handleAction = async (eventId: number, action: 'keep' | 'merge') => {
-    setProcessing(eventId);
+    setProcessing((prev) => new Set(prev).add(eventId));
     setError(null);
     try {
       const res = await fetch('/api/review', {
@@ -56,11 +120,84 @@ export default function ReviewPage() {
         throw new Error(data.error ?? '操作失败');
       }
       setEvents((prev) => prev.filter((e) => e.id !== eventId));
-      setMergeTarget(null);
+      setSelectedIds((prev) => {
+        const next = new Set(prev);
+        next.delete(eventId);
+        return next;
+      });
+      if (mergeTarget === eventId) setMergeTarget(null);
+      setFocusedIndex((i) => Math.min(i, Math.max(0, events.length - 2)));
     } catch (e) {
       setError((e as Error).message);
     } finally {
-      setProcessing(null);
+      setProcessing((prev) => {
+        const next = new Set(prev);
+        next.delete(eventId);
+        return next;
+      });
+    }
+  };
+
+  const handleBatchKeep = async () => {
+    if (selectedIds.size === 0) return;
+    setError(null);
+    try {
+      const res = await fetch('/api/review/batch', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ eventIds: [...selectedIds], action: 'keep' }),
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error ?? '批量操作失败');
+      }
+      setEvents((prev) => prev.filter((e) => !selectedIds.has(e.id)));
+      setSelectedIds(new Set());
+    } catch (e) {
+      setError((e as Error).message);
+    }
+  };
+
+  const handleBatchDelete = async () => {
+    if (selectedIds.size === 0) return;
+    setError(null);
+    try {
+      const res = await fetch('/api/review/batch', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ eventIds: [...selectedIds], action: 'delete' }),
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error ?? '批量操作失败');
+      }
+      setEvents((prev) => prev.filter((e) => !selectedIds.has(e.id)));
+      setSelectedIds(new Set());
+    } catch (e) {
+      setError((e as Error).message);
+    }
+  };
+
+  const handleBatchMerge = async () => {
+    if (!mergeTarget || selectedIds.size === 0) return;
+    const idsToMerge = [...selectedIds].filter((id) => id !== mergeTarget);
+    if (idsToMerge.length === 0) return;
+    setError(null);
+    try {
+      const res = await fetch('/api/review/batch', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ eventIds: idsToMerge, action: 'merge', mergeTargetId: mergeTarget }),
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error ?? '批量合并失败');
+      }
+      setEvents((prev) => prev.filter((e) => !selectedIds.has(e.id) || e.id === mergeTarget));
+      setSelectedIds(new Set());
+      setMergeTarget(null);
+    } catch (e) {
+      setError((e as Error).message);
     }
   };
 
@@ -83,6 +220,17 @@ export default function ReviewPage() {
         </div>
       </div>
 
+      {/* 快捷键提示 */}
+      <div className="shortcut-bar">
+        <span className="shortcut-hint">
+          <kbd>K</kbd> 保留 &nbsp;
+          <kbd>J</kbd>/<kbd>↑↓</kbd> 切换 &nbsp;
+          <kbd>M</kbd> 合并 &nbsp;
+          <kbd>Space</kbd> 选择 &nbsp;
+          <kbd>Shift+A</kbd> 全选
+        </span>
+      </div>
+
       {loading && <div className="empty-state">加载中...</div>}
 
       {!loading && error && (
@@ -102,72 +250,126 @@ export default function ReviewPage() {
       )}
 
       {!loading && events.length > 0 && (
-        <div className="review-stats">
-          待审核事件: <span className="text-cyan">{events.length}</span>
-        </div>
-      )}
+        <>
+          <div className="review-stats">
+            待审核事件: <span className="text-cyan">{events.length}</span>
+            {selectedIds.size > 0 && (
+              <>
+                {' '}
+                | 已选: <span className="text-cyan">{selectedIds.size}</span>
+              </>
+            )}
+          </div>
 
-      <div className="review-list">
-        {events.map((evt) => (
-          <div key={evt.id} className="review-card">
-            <div className="review-card-header">
-              <span className="review-id">ID: {evt.id}</span>
-              <span className="review-importance">{importanceLabel(evt.importance)}</span>
-              {evt.category && <span className="review-category">{evt.category}</span>}
-            </div>
-            <h3 className="review-title">{evt.title}</h3>
-            {evt.description && <p className="review-desc">{evt.description}</p>}
-            <div className="review-meta">
-              {evt.dateText && <span className="review-date">{evt.dateText}</span>}
-              {evt.sourceUrl && (
-                <a
-                  href={evt.sourceUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="review-link"
-                >
-                  来源
-                </a>
-              )}
-              <span className="review-char">角色 #{evt.characterId}</span>
-            </div>
-            <div className="review-actions">
-              <button
-                className="btn-action btn-keep"
-                disabled={processing === evt.id}
-                onClick={() => handleAction(evt.id, 'keep')}
-              >
-                保留
+          {/* 批量操作栏 */}
+          {selectedIds.size > 0 && (
+            <div className="batch-bar">
+              <button className="btn-action btn-keep" onClick={handleBatchKeep}>
+                批量保留 ({selectedIds.size})
               </button>
-              <button
-                className="btn-action btn-merge"
-                disabled={processing === evt.id}
-                onClick={() => {
-                  if (mergeTarget === evt.id) {
-                    setMergeTarget(null);
-                  } else {
-                    setMergeTarget(evt.id);
-                  }
-                }}
-              >
-                {mergeTarget === evt.id ? '取消合并' : '标记为重复'}
+              <button className="btn-action btn-merge" onClick={handleBatchDelete}>
+                批量删除 ({selectedIds.size})
               </button>
-              {mergeTarget !== null && mergeTarget !== evt.id && (
-                <button
-                  className="btn-action btn-merge-confirm"
-                  disabled={processing === evt.id}
-                  onClick={() => handleAction(evt.id, 'merge')}
-                >
-                  合并到 #{mergeTarget}
+              {mergeTarget && (
+                <button className="btn-action btn-merge-confirm" onClick={handleBatchMerge}>
+                  批量合并到 #{mergeTarget} ({selectedIds.size})
                 </button>
               )}
             </div>
-            {processing === evt.id && <div className="review-processing">处理中...</div>}
+          )}
+
+          <div className="review-list">
+            {events.map((evt, idx) => (
+              <div
+                key={evt.id}
+                className={`review-card${idx === focusedIndex ? ' focused' : ''}${selectedIds.has(evt.id) ? ' selected' : ''}`}
+              >
+                <div className="review-card-header">
+                  <label className="review-checkbox">
+                    <input
+                      type="checkbox"
+                      checked={selectedIds.has(evt.id)}
+                      onChange={() => toggleSelect(evt.id)}
+                    />
+                  </label>
+                  <span className="review-id">ID: {evt.id}</span>
+                  <span className="review-importance">{importanceLabel(evt.importance)}</span>
+                  {evt.category && <span className="review-category">{evt.category}</span>}
+                </div>
+                <h3 className="review-title">{evt.title}</h3>
+                {evt.description && <p className="review-desc">{evt.description}</p>}
+                <div className="review-meta">
+                  {evt.dateText && <span className="review-date">{evt.dateText}</span>}
+                  {evt.sourceUrl && (
+                    <a
+                      href={evt.sourceUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="review-link"
+                    >
+                      来源
+                    </a>
+                  )}
+                  <span className="review-char">角色 #{evt.characterId}</span>
+                </div>
+                <div className="review-actions">
+                  <button
+                    className="btn-action btn-keep"
+                    disabled={processing.has(evt.id)}
+                    onClick={() => handleAction(evt.id, 'keep')}
+                  >
+                    保留
+                  </button>
+                  <button
+                    className="btn-action btn-merge"
+                    disabled={processing.has(evt.id)}
+                    onClick={() => {
+                      if (mergeTarget === evt.id) {
+                        setMergeTarget(null);
+                      } else {
+                        setMergeTarget(evt.id);
+                      }
+                    }}
+                  >
+                    {mergeTarget === evt.id ? '取消合并' : '标记为重复'}
+                  </button>
+                  {mergeTarget !== null && mergeTarget !== evt.id && (
+                    <button
+                      className="btn-action btn-merge-confirm"
+                      disabled={processing.has(evt.id)}
+                      onClick={() => handleAction(evt.id, 'merge')}
+                    >
+                      合并到 #{mergeTarget}
+                    </button>
+                  )}
+                </div>
+                {processing.has(evt.id) && <div className="review-processing">处理中...</div>}
+              </div>
+            ))}
           </div>
-        ))}
-      </div>
+        </>
+      )}
 
       <style jsx>{`
+        .shortcut-bar {
+          padding: 0.5rem 0;
+          margin-bottom: 0.5rem;
+          border-bottom: 1px solid var(--border);
+        }
+        .shortcut-hint {
+          font-size: 0.75rem;
+          color: var(--text-muted);
+        }
+        kbd {
+          display: inline-block;
+          padding: 0.1rem 0.4rem;
+          font-size: 0.7rem;
+          font-family: var(--font-mono), monospace;
+          background: var(--surface);
+          border: 1px solid var(--border);
+          border-radius: 3px;
+          color: var(--cyan);
+        }
         .review-stats {
           padding: 1rem 0;
           font-size: 0.95rem;
@@ -176,6 +378,15 @@ export default function ReviewPage() {
         .text-cyan {
           color: var(--cyan);
           font-weight: 600;
+        }
+        .batch-bar {
+          display: flex;
+          gap: 0.5rem;
+          padding: 0.75rem;
+          margin-bottom: 1rem;
+          background: var(--surface);
+          border: 1px solid var(--border-light);
+          border-radius: 8px;
         }
         .review-error {
           padding: 1.5rem;
@@ -187,7 +398,7 @@ export default function ReviewPage() {
         .review-list {
           display: flex;
           flex-direction: column;
-          gap: 1rem;
+          gap: 0.75rem;
         }
         .review-card {
           background: var(--surface);
@@ -196,14 +407,29 @@ export default function ReviewPage() {
           padding: 1.25rem;
           transition: border-color 0.2s;
         }
-        .review-card:hover {
-          border-color: var(--border-light);
+        .review-card.focused {
+          border-color: var(--cyan);
+          box-shadow: 0 0 0 1px var(--cyan);
+        }
+        .review-card.selected {
+          background: var(--cyan-dim);
+          border-color: var(--cyan);
         }
         .review-card-header {
           display: flex;
           align-items: center;
           gap: 0.75rem;
           margin-bottom: 0.5rem;
+        }
+        .review-checkbox {
+          display: flex;
+          align-items: center;
+          cursor: pointer;
+        }
+        .review-checkbox input {
+          accent-color: var(--cyan);
+          width: 16px;
+          height: 16px;
         }
         .review-id {
           font-family: var(--font-mono), monospace;
