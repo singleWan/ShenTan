@@ -1,7 +1,7 @@
 import { createPage, closeBrowser } from './browser.js';
 import { detectPlatform, getScrapableUrl } from './platform.js';
 import { extractByPlatform } from './extractors/index.js';
-import { withRetry } from '@shentan/core';
+import { withRetry, getDb, cache } from '@shentan/core';
 
 export interface ScrapedContent {
   title: string;
@@ -63,7 +63,23 @@ const SCRAPE_RETRY_CONFIG = { maxRetries: 2, baseDelay: 2000, maxDelay: 15000 };
 
 // 爬取单个页面，集成平台专用提取器
 export async function scrapePage(url: string, timeout = 30000): Promise<ScrapedContent> {
-  return withRetry(async () => {
+  // 查询缓存
+  try {
+    const db = getDb();
+    const cached = await cache.getCachedPage(db, url);
+    if (cached) {
+      return {
+        title: cached.title ?? '',
+        url: cached.url,
+        content: cached.content,
+        links: [],
+      };
+    }
+  } catch {
+    // 缓存不可用时静默降级
+  }
+
+  const result = await withRetry(async () => {
     const platform = detectPlatform(url);
     const scrapableUrl = platform ? getScrapableUrl(url) : url;
 
@@ -98,6 +114,20 @@ export async function scrapePage(url: string, timeout = 30000): Promise<ScrapedC
       await context.close();
     }
   }, SCRAPE_RETRY_CONFIG);
+
+  // 写入缓存
+  try {
+    const db = getDb();
+    await cache.setCachedPage(db, {
+      url: result.url,
+      content: result.content,
+      title: result.title,
+    });
+  } catch {
+    // 缓存写入失败不影响返回
+  }
+
+  return result;
 }
 
 // 批量爬取页面

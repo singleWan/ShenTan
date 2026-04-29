@@ -1,4 +1,4 @@
-import { eq, and, gte, desc, sql } from 'drizzle-orm';
+import { eq, and, gte, desc, sql, like, or } from 'drizzle-orm';
 import type { Database } from './connection.js';
 import { characters, events, reactions, collectionTasks } from './schema.js';
 import type {
@@ -89,6 +89,23 @@ function jaccardSimilarity(a: string, b: string): number {
   return union === 0 ? 0 : intersection / union;
 }
 
+function levenshteinRatio(a: string, b: string): number {
+  if (a === b) return 1;
+  if (!a.length || !b.length) return 0;
+  const matrix: number[][] = [];
+  for (let i = 0; i <= b.length; i++) matrix[i] = [i];
+  for (let j = 0; j <= a.length; j++) matrix[0][j] = j;
+  for (let i = 1; i <= b.length; i++) {
+    for (let j = 1; j <= a.length; j++) {
+      matrix[i][j] = b[i - 1] === a[j - 1]
+        ? matrix[i - 1][j - 1]
+        : Math.min(matrix[i - 1][j - 1] + 1, matrix[i][j - 1] + 1, matrix[i - 1][j] + 1);
+    }
+  }
+  const maxLen = Math.max(a.length, b.length);
+  return 1 - matrix[b.length][a.length] / maxLen;
+}
+
 function isDateClose(a: string | null, b: string | null, daysThreshold: number): boolean {
   if (!a || !b) return false;
   try {
@@ -101,16 +118,24 @@ function isDateClose(a: string | null, b: string | null, daysThreshold: number):
   }
 }
 
-function isDuplicateEvent(
+type DupConfidence = 'auto' | 'review' | 'none';
+
+function checkDuplicate(
   newEvt: { title: string; description?: string; dateSortable?: string },
   existing: { title: string; description: string | null; dateSortable: string | null },
-): boolean {
-  const titleSim = jaccardSimilarity(normalizeText(newEvt.title), normalizeText(existing.title));
-  if (titleSim < 0.5) return false;
+): { confidence: DupConfidence; score: number } {
+  const normA = normalizeText(newEvt.title);
+  const normB = normalizeText(existing.title);
+  const jaccard = jaccardSimilarity(normA, normB);
+  const levenshtein = levenshteinRatio(normA, normB);
+  const score = jaccard * 0.6 + levenshtein * 0.4;
   const dateClose = isDateClose(newEvt.dateSortable ?? null, existing.dateSortable, 30);
-  if (dateClose) return true;
-  if (titleSim >= 0.8) return true;
-  return false;
+
+  if (score >= 0.85 && dateClose) return { confidence: 'auto', score };
+  if (score >= 0.9) return { confidence: 'auto', score };
+  if (score >= 0.6 && dateClose) return { confidence: 'review', score };
+  if (score >= 0.8) return { confidence: 'review', score };
+  return { confidence: 'none', score };
 }
 
 // Event 查询
@@ -157,17 +182,27 @@ export async function saveEvents(db: Database, input: {
     sourceUrl: string | null;
     sourceTitle: string | null;
     importance: number;
+    reviewStatus: string | null;
   }> = [];
   const skipped: string[] = [];
+  const pendingReview: string[] = [];
 
   for (const evt of input.events) {
-    const dup = existingEvents.find(ex => isDuplicateEvent(evt, ex));
-    if (dup) {
+    let bestDup: { confidence: DupConfidence; score: number } | null = null;
+    for (const ex of existingEvents) {
+      const dup = checkDuplicate(evt, ex);
+      if (dup.confidence !== 'none') {
+        if (!bestDup || dup.score > bestDup.score) bestDup = dup;
+      }
+    }
+
+    if (bestDup?.confidence === 'auto') {
       skipped.push(evt.title);
       continue;
     }
 
     const normalized = normalizeDate(evt.dateText, evt.dateSortable, characterType);
+    const reviewStatus = bestDup?.confidence === 'review' ? 'pending' : null;
 
     toSave.push({
       parentEventId: evt.parentEventId ?? null,
@@ -182,7 +217,10 @@ export async function saveEvents(db: Database, input: {
       sourceUrl: evt.sourceUrl ?? null,
       sourceTitle: evt.sourceTitle ?? null,
       importance: evt.importance ?? 3,
+      reviewStatus,
     });
+
+    if (reviewStatus) pendingReview.push(evt.title);
   }
 
   // ── 第二阶段：对无法解析的日期进行插值排序 ──
@@ -190,26 +228,37 @@ export async function saveEvents(db: Database, input: {
   interpolateDateSortables(toSave, existingDates, characterType);
 
   // ── 第三阶段：批量入库（事务内分批插入） ──
-  if (toSave.length === 0) return { saved: [], skipped };
+  if (toSave.length === 0) return { saved: [], skipped, pendingReview };
 
   const results = await db.transaction(async (tx) => {
     const inserted = [];
-    // 每批最多 50 条，避免 SQLite 变量数限制
     const BATCH_SIZE = 50;
     for (let i = 0; i < toSave.length; i += BATCH_SIZE) {
       const batch = toSave.slice(i, i + BATCH_SIZE);
       for (const evt of batch) {
         const result = await tx.insert(events).values({
           characterId: input.characterId,
-          ...evt,
+          parentEventId: evt.parentEventId,
+          title: evt.title,
+          description: evt.description,
+          dateText: evt.dateText,
+          dateSortable: evt.dateSortable,
+          category: evt.category,
+          content: evt.content,
+          platform: evt.platform,
+          authorHandle: evt.authorHandle,
+          sourceUrl: evt.sourceUrl,
+          sourceTitle: evt.sourceTitle,
+          importance: evt.importance,
           metadata: null,
+          reviewStatus: evt.reviewStatus,
         }).returning();
         inserted.push(result[0]!);
       }
     }
     return inserted;
   });
-  return { saved: results, skipped };
+  return { saved: results, skipped, pendingReview };
 }
 
 export async function getEvents(db: Database, input: {
@@ -443,4 +492,88 @@ export async function getRunningCollectionTasks(db: Database) {
   return db.select().from(collectionTasks)
     .where(eq(collectionTasks.status, 'running'))
     .orderBy(desc(collectionTasks.createdAt));
+}
+
+// 搜索函数
+export interface EventSearchFilters {
+  characterId?: number;
+  category?: string;
+  dateFrom?: string;
+  dateTo?: string;
+  importance?: number;
+}
+
+export async function searchCharacters(db: Database, query: string) {
+  const pattern = `%${query}%`;
+  return db.select().from(characters)
+    .where(or(
+      like(characters.name, pattern),
+      like(characters.description, pattern),
+    ))
+    .orderBy(desc(characters.updatedAt))
+    .limit(20);
+}
+
+export async function searchEvents(db: Database, query: string, filters?: EventSearchFilters) {
+  const pattern = `%${query}%`;
+  const conditions = [
+    or(
+      like(events.title, pattern),
+      like(events.description, pattern),
+      like(events.content, pattern),
+    ),
+  ];
+
+  if (filters?.characterId) conditions.push(eq(events.characterId, filters.characterId));
+  if (filters?.category) conditions.push(eq(events.category, filters.category));
+  if (filters?.importance) conditions.push(gte(events.importance, filters.importance));
+  if (filters?.dateFrom) conditions.push(gte(events.dateSortable, filters.dateFrom));
+  if (filters?.dateTo) {
+    conditions.push(sql`${events.dateSortable} <= ${filters.dateTo}`);
+  }
+
+  return db.select().from(events)
+    .where(and(...conditions))
+    .orderBy(sql`COALESCE(${events.dateSortable}, 'zzzz')`, events.createdAt)
+    .limit(50);
+}
+
+// 审核查询
+export async function getPendingReviewEvents(db: Database, characterId?: number) {
+  const conditions = [eq(events.reviewStatus, 'pending')];
+  if (characterId) conditions.push(eq(events.characterId, characterId));
+  return db.select().from(events)
+    .where(and(...conditions))
+    .orderBy(desc(events.createdAt));
+}
+
+export async function resolveReviewEvent(db: Database, eventId: number, action: 'keep' | 'merge', mergeTargetId?: number) {
+  if (action === 'keep') {
+    await db.update(events).set({ reviewStatus: 'approved', updatedAt: new Date().toISOString() })
+      .where(eq(events.id, eventId));
+  } else if (action === 'merge' && mergeTargetId) {
+    await db.transaction(async (tx) => {
+      const target = await tx.select().from(events).where(eq(events.id, mergeTargetId)).limit(1);
+      const source = await tx.select().from(events).where(eq(events.id, eventId)).limit(1);
+      if (target[0] && source[0]) {
+        let mergedFrom: number[] = [];
+        try {
+          mergedFrom = target[0].mergedFromIds ? JSON.parse(target[0].mergedFromIds) : [];
+        } catch { /* 损坏数据，重新初始化 */ }
+        mergedFrom.push(eventId);
+        const updates: Record<string, unknown> = {
+          mergedFromIds: JSON.stringify(mergedFrom),
+          updatedAt: new Date().toISOString(),
+        };
+        if (!target[0].description && source[0].description) updates.description = source[0].description;
+        if (!target[0].content && source[0].content) updates.content = source[0].content;
+        if (!target[0].dateText && source[0].dateText) updates.dateText = source[0].dateText;
+        await tx.update(events).set(updates).where(eq(events.id, mergeTargetId));
+        // 转移源事件的 reactions 到目标事件
+        await tx.update(reactions).set({ eventId: mergeTargetId })
+          .where(eq(reactions.eventId, eventId));
+        await tx.delete(events).where(eq(events.id, eventId));
+      }
+    });
+  }
 }

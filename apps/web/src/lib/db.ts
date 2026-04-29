@@ -16,7 +16,7 @@ function findMonorepoRoot(startDir: string): string {
 const MONOREPO_ROOT = findMonorepoRoot(resolve(process.cwd()));
 
 // 从 @shentan/core/schema 导入统一的 Schema 定义（单一数据源，不加载 libsql 驱动）
-export { characters, events, reactions, collectionTasks, backgroundTasks } from '@shentan/core/schema';
+export { characters, events, reactions, collectionTasks, backgroundTasks, crawlCache, characterRelations } from '@shentan/core/schema';
 
 // 建表 SQL（与 core/src/db/init.ts 保持同步）
 const CREATE_TABLES = `
@@ -112,6 +112,31 @@ CREATE TABLE IF NOT EXISTS background_tasks (
 CREATE INDEX IF NOT EXISTS background_tasks_type_idx ON background_tasks(type);
 CREATE INDEX IF NOT EXISTS background_tasks_status_idx ON background_tasks(status);
 CREATE INDEX IF NOT EXISTS background_tasks_character_idx ON background_tasks(character_id);
+
+CREATE TABLE IF NOT EXISTS crawl_cache (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  url TEXT NOT NULL UNIQUE,
+  content_hash TEXT NOT NULL,
+  content TEXT NOT NULL,
+  title TEXT,
+  fetched_at TEXT NOT NULL,
+  expires_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS crawl_cache_url_idx ON crawl_cache(url);
+CREATE INDEX IF NOT EXISTS crawl_cache_expires_idx ON crawl_cache(expires_at);
+
+CREATE TABLE IF NOT EXISTS character_relations (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  from_character_id INTEGER NOT NULL REFERENCES characters(id),
+  to_character_id INTEGER NOT NULL REFERENCES characters(id),
+  relation_type TEXT NOT NULL,
+  description TEXT,
+  source_url TEXT,
+  confidence TEXT,
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS character_relations_from_idx ON character_relations(from_character_id);
+CREATE INDEX IF NOT EXISTS character_relations_to_idx ON character_relations(to_character_id);
 `;
 
 // 兼容已有数据库的增量迁移（忽略已存在的列）
@@ -121,6 +146,9 @@ const MIGRATIONS: Array<{ sql: string; postUpdate?: string }> = [
   { sql: `ALTER TABLE events ADD COLUMN updated_at TEXT NOT NULL DEFAULT '1970-01-01T00:00:00Z';`, postUpdate: `UPDATE events SET updated_at = created_at;` },
   { sql: `ALTER TABLE reactions ADD COLUMN status TEXT NOT NULL DEFAULT 'active';` },
   { sql: `ALTER TABLE reactions ADD COLUMN collection_id TEXT;` },
+  { sql: `ALTER TABLE events ADD COLUMN review_status TEXT;` },
+  { sql: `ALTER TABLE events ADD COLUMN duplicate_of INTEGER;` },
+  { sql: `ALTER TABLE events ADD COLUMN merged_from_ids TEXT;` },
 ];
 
 let _db: ReturnType<typeof drizzle> | null = null;

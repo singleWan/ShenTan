@@ -5,6 +5,7 @@ import { exportCommand } from './commands/export.js';
 import { serveCommand } from './commands/serve.js';
 import { deleteCharacterCommand, deleteEventCommand, deleteReactionCommand } from './commands/delete.js';
 import { tasksCommand } from './commands/tasks.js';
+import { cacheCommand } from './commands/cache.js';
 
 const program = new Command()
   .configureHelp({ helpOption: ['-h', '--help', '显示帮助信息'] });
@@ -71,5 +72,11 @@ deleteCmd
   .option('--db <path>', '数据库文件路径')
   .option('-f, --force', '跳过确认提示')
   .action(deleteReactionCommand);
+
+program
+  .command('cache [subcommand]')
+  .description('管理爬取缓存 (stats/clear/clear-all)')
+  .option('--db <path>', '数据库文件路径')
+  .action(cacheCommand);
 
 program.parse();

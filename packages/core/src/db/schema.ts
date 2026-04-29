@@ -29,6 +29,9 @@ export const events = sqliteTable('events', {
   sourceTitle: text('source_title'),
   importance: integer().notNull().default(3),
   metadata: text(),
+  reviewStatus: text('review_status'),
+  duplicateOf: integer('duplicate_of'),
+  mergedFromIds: text('merged_from_ids'),
   createdAt: text('created_at').notNull().$defaultFn(() => new Date().toISOString()),
   updatedAt: text('updated_at').notNull().$defaultFn(() => new Date().toISOString()),
 }, (table) => [
@@ -75,6 +78,33 @@ export const collectionTasks = sqliteTable('collection_tasks', {
 }, (table) => [
   index('collection_tasks_status_idx').on(table.status),
   index('collection_tasks_character_idx').on(table.characterId),
+]);
+
+export const characterRelations = sqliteTable('character_relations', {
+  id: integer().primaryKey({ autoIncrement: true }),
+  fromCharacterId: integer('from_character_id').notNull().references(() => characters.id),
+  toCharacterId: integer('to_character_id').notNull().references(() => characters.id),
+  relationType: text('relation_type').notNull(),
+  description: text(),
+  sourceUrl: text('source_url'),
+  confidence: text(),
+  createdAt: text('created_at').notNull().$defaultFn(() => new Date().toISOString()),
+}, (table) => [
+  index('character_relations_from_idx').on(table.fromCharacterId),
+  index('character_relations_to_idx').on(table.toCharacterId),
+]);
+
+export const crawlCache = sqliteTable('crawl_cache', {
+  id: integer().primaryKey({ autoIncrement: true }),
+  url: text().notNull().unique(),
+  contentHash: text('content_hash').notNull(),
+  content: text().notNull(),
+  title: text(),
+  fetchedAt: text('fetched_at').notNull(),
+  expiresAt: text('expires_at').notNull(),
+}, (table) => [
+  index('crawl_cache_url_idx').on(table.url),
+  index('crawl_cache_expires_idx').on(table.expiresAt),
 ]);
 
 export const backgroundTasks = sqliteTable('background_tasks', {
