@@ -11,7 +11,8 @@
     "./errors": "./src/utils/errors.ts",
     "./queries": "./src/db/queries.ts",
     "./cache": "./src/db/cache.ts",
-    "./relations": "./src/db/relations.ts"
+    "./relations": "./src/db/relations.ts",
+    "./logger": "./src/utils/structured-logger.ts"
   },
   "scripts": {
     "build": "tsc",

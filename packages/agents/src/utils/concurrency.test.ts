@@ -4,15 +4,15 @@ import { runWithConcurrency } from './concurrency.js';
 describe('runWithConcurrency', () => {
   it('按序执行所有任务', async () => {
     const order: number[] = [];
-    const tasks = [1, 2, 3, 4, 5].map(n => async () => {
+    const tasks = [1, 2, 3, 4, 5].map((n) => async () => {
       order.push(n);
       return n * 2;
     });
 
     const results = await runWithConcurrency(tasks, 2);
     expect(results).toHaveLength(5);
-    expect(results.every(r => r.success)).toBe(true);
-    expect(results.map(r => r.success ? r.value : 0)).toEqual([2, 4, 6, 8, 10]);
+    expect(results.every((r) => r.success)).toBe(true);
+    expect(results.map((r) => (r.success ? r.value : 0))).toEqual([2, 4, 6, 8, 10]);
   });
 
   it('限制并发数', async () => {
@@ -22,7 +22,7 @@ describe('runWithConcurrency', () => {
     const tasks = Array.from({ length: 10 }, () => async () => {
       running++;
       maxRunning = Math.max(maxRunning, running);
-      await new Promise(r => setTimeout(r, 10));
+      await new Promise((r) => setTimeout(r, 10));
       running--;
       return true;
     });
@@ -34,7 +34,9 @@ describe('runWithConcurrency', () => {
   it('失败任务不影响其他任务', async () => {
     const tasks = [
       async () => 'ok',
-      async () => { throw new Error('fail'); },
+      async () => {
+        throw new Error('fail');
+      },
       async () => 'also ok',
     ];
 
@@ -63,7 +65,7 @@ describe('runWithConcurrency', () => {
     const results = await runWithConcurrency(tasks, 1, controller.signal);
     expect(completed).toBeLessThan(5);
     // 取消后的任务应标记为失败
-    const cancelled = results.filter(r => !r.success);
+    const cancelled = results.filter((r) => !r.success);
     expect(cancelled.length).toBeGreaterThan(0);
   });
 
@@ -71,6 +73,6 @@ describe('runWithConcurrency', () => {
     const tasks = [async () => 1, async () => 2];
     const results = await runWithConcurrency(tasks, 10);
     expect(results).toHaveLength(2);
-    expect(results.every(r => r.success)).toBe(true);
+    expect(results.every((r) => r.success)).toBe(true);
   });
 });
