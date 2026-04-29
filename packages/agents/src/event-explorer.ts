@@ -49,7 +49,7 @@ export async function runEventExplorer(
 
   const userPrompt = `请对角色 "${characterName}" (ID: ${characterId}) 的事件进行第 ${round} 轮拓展。
 角色类型: ${characterType === 'fictional' ? '虚构角色（不要使用 social 搜索模式）' : '历史人物（可使用 social 模式搜索社交媒体）'}
-${getDateContext()}
+${getDateContext(characterType)}
 ${sourceSection}${aliasSection}${contextSection}
 步骤：
 1. 用 get_events 获取已有事件列表

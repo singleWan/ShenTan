@@ -43,6 +43,7 @@ export async function runExpandEvents(
   db: Database,
   characterId: number,
   characterName: string,
+  characterType: string,
   context: ExpandContext,
   maxIterations: number,
   maxOutputTokens: number,
@@ -97,7 +98,7 @@ ${center.description ? `- 描述: ${center.description}` : ''}
   }
 
   const userPrompt = `请对角色 "${characterName}" (ID: ${characterId}) 进行事件拓展。
-${getDateContext()}
+${getDateContext(characterType)}
 
 ${contextSection}
 ${aliasSection}

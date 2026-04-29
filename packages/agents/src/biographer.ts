@@ -36,7 +36,7 @@ export async function runBiographer(
 
   const userPrompt = `请收集角色 "${characterName}" 的生平事迹。
 角色类型: ${characterType === 'fictional' ? '小说/虚构角色' : '历史人物'}
-${getDateContext()}
+${getDateContext(characterType)}
 ${sourceSection}${aliasSection}${feedbackSection}
 请按以下步骤执行：
 1. 先搜索基本生平信息

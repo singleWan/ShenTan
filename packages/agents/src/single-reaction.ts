@@ -19,6 +19,7 @@ export async function runSingleReactionCollector(
   db: Database,
   eventContext: EventContext,
   characterName: string,
+  characterType: string,
   maxIterations: number,
   maxOutputTokens: number,
   onLog?: (msg: string) => void,
@@ -53,7 +54,7 @@ ${eventDetailSection}
 
 ## 角色
 "${characterName}"
-${getDateContext()}
+${getDateContext(characterType)}
 ${aliasSection}
 
 步骤：

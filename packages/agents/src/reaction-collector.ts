@@ -88,7 +88,7 @@ export async function runReactionCollectorForEvent(opts: PerEventOptions): Promi
 
 角色: "${characterName}" (ID: ${characterId})
 角色类型: ${characterType === 'fictional' ? '虚构角色（不要使用 social 搜索模式）' : '历史人物（可使用 social 模式搜索社交媒体）'}
-${getDateContext()}
+${getDateContext(characterType)}
 ${sourceSection}${aliasSection}${statementSection}
 事件信息：
 ${eventDetail}

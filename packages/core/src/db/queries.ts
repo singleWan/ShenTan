@@ -233,6 +233,27 @@ export async function saveEvents(
       continue;
     }
 
+    // 历史人物：过滤现代衍生内容（展览、纪念活动等）
+    if (characterType === 'historical') {
+      const text = `${evt.title} ${evt.description ?? ''}`.toLowerCase();
+      const modernDerivativeKeywords = [
+        '展览', '纪念活动', '纪念展', '纪念馆', '博物馆', '纪录片',
+        '传记出版', '学术研讨', '人物展览', '年画展', '文化节',
+        '非遗', '传承展示', '进校园', '民主监督',
+      ];
+      const isModernDerivative = modernDerivativeKeywords.some((kw) => text.includes(kw));
+      // 对于 dateSortable 在 1900 年以后的历史人物事件，进一步检查是否为现代衍生内容
+      const dateStr = evt.dateSortable ?? '';
+      const yearMatch = dateStr.match(/^(\d{4})-/);
+      const eventYear = yearMatch ? parseInt(yearMatch[1], 10) : null;
+      const isModernDate = eventYear !== null && eventYear >= 1900;
+
+      if (isModernDerivative && isModernDate) {
+        skipped.push(`${evt.title} [历史人物现代衍生内容]`);
+        continue;
+      }
+    }
+
     const normalized = normalizeDate(evt.dateText, evt.dateSortable, characterType);
     const reviewStatus = bestDup?.confidence === 'review' ? 'pending' : null;
 
