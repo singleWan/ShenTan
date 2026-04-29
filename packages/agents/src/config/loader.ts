@@ -74,6 +74,8 @@ function buildProviders(): Record<string, ProviderConfig> {
       model,
       apiKey: getProviderApiKey(name),
       baseURL: getEnv(`${prefix}BASE_URL`),
+      project: getEnv(`${prefix}PROJECT`),
+      location: getEnv(`${prefix}LOCATION`),
       maxTokens: getEnvInt(`${prefix}MAX_TOKENS`),
       providerOptions,
     };

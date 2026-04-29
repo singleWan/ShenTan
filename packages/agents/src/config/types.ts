@@ -1,4 +1,4 @@
-export type ProviderType = 'anthropic' | 'openai' | 'openai-compatible';
+export type ProviderType = 'anthropic' | 'openai' | 'openai-compatible' | 'google' | 'google-vertex';
 
 /** JSON 兼容的递归类型，与 AI SDK 的 ProviderOptions 对齐 */
 type JSONValue = string | number | boolean | null | JSONValue[] | JSONObject;
@@ -12,6 +12,8 @@ export interface ProviderConfig {
   model: string;
   apiKey?: string;
   baseURL?: string;
+  project?: string;
+  location?: string;
   maxTokens?: number;
   providerOptions?: ProviderOptions;
 }

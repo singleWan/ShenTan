@@ -1,4 +1,6 @@
 import { createAnthropic } from '@ai-sdk/anthropic';
+import { createGoogleGenerativeAI } from '@ai-sdk/google';
+import { createVertex } from '@ai-sdk/google-vertex';
 import { createOpenAI } from '@ai-sdk/openai';
 import { createOpenAICompatible } from '@ai-sdk/openai-compatible';
 import type { LanguageModel } from 'ai';
@@ -29,6 +31,23 @@ export function createModel(config: ProviderConfig): LanguageModel {
         headers: config.apiKey ? { Authorization: `Bearer ${config.apiKey}` } : undefined,
       });
       return provider.chatModel(config.model);
+    }
+    case 'google': {
+      const provider = createGoogleGenerativeAI({
+        apiKey: config.apiKey,
+      });
+      return provider(config.model);
+    }
+    case 'google-vertex': {
+      if (!config.project || !config.location) {
+        throw new Error('google-vertex provider 必须配置 project 和 location');
+      }
+      const provider = createVertex({
+        project: config.project,
+        location: config.location,
+        ...(config.apiKey ? { apiKey: config.apiKey } : {}),
+      });
+      return provider(config.model);
     }
     default:
       throw new Error(`不支持的 provider 类型: ${config.type satisfies never}`);
